@@ -1,0 +1,33 @@
+---
+description: Convention for Task tool subagent descriptions
+alwaysApply: true
+---
+
+# Task Tool Subagent Description Convention
+
+When using the Task tool, prefix the `description` parameter with the subagent type in brackets for UI clarity.
+
+## Format
+
+```
+description: "[subagent_type] Brief description of task"
+```
+
+## Examples
+
+```
+✅ "[search-agent] Analyze authentication flow"
+✅ "[generalPurpose] Refactor database queries"
+✅ "[best-of-n-runner] Test migration approach"
+✅ "[cursor-guide] Find docs on MCP setup"
+
+❌ "Analyze authentication flow"  (missing type prefix)
+```
+
+This helps identify which specialized subagent is running in the CLI output:
+
+```
+⬢ 1 agent completed
+  [search-agent] Analyze authentication flow
+  ✓ Done
+```
