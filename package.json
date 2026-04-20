@@ -1,15 +1,29 @@
 {
-  "name": "tap-tool",
+  "name": "ralph",
+  "version": "0.1.0",
+  "description": "Context-engineered ralph loop CLI for Claude Code / Cursor agents, built with Effect.",
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "bin": {
+    "ralph": "./index.ts"
+  },
+  "scripts": {
+    "ralph": "bun run index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "typescript": "^5.9.3"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
+    "@effect/cli": "^0.75.1",
+    "@effect/platform": "^0.96.0",
+    "@effect/platform-bun": "^0.89.0",
     "effect": "^3.21.1"
   }
 }

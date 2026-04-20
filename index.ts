@@ -1,5 +1,2 @@
-import { Console, Effect } from "effect";
-
-const program = Console.log("Test")
-
-Effect.runSync(program)
+#!/usr/bin/env bun
+import "./src/main.ts"
