@@ -1,5 +1,3 @@
-import { Effect } from "effect";
-import { LoopRunnerLive } from "./services/LoopRunner";
+import { Console } from "effect";
 
-
-Effect.runPromise(LoopRunnerLive).then(console.log)
+Console.log('tests')
