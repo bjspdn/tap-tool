@@ -143,8 +143,8 @@
             "YAML frontmatter parses cleanly with a standard parser."
           ],
           "depends_on": [],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         },
         {
@@ -157,8 +157,8 @@
             "YAML frontmatter parses cleanly."
           ],
           "depends_on": [],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         },
         {
@@ -168,11 +168,12 @@
           "acceptance": [
             "Frontmatter has a `description` field that explicitly mentions the trigger condition (acceptance referring to a test file).",
             "Body describes the red-green-refactor loop, one-assertion-per-test rule, behavior-named tests, small-fast-unit preference.",
-            "Content is code-agnostic (no Bun-, TypeScript-, or Effect-specific rules)."
+            "Content is code-agnostic (no Bun-, TypeScript-, or Effect-specific rules).",
+            "Skill is discoverable by the Claude Code harness (appears in the registered skills list)."
           ],
           "depends_on": [],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         },
         {
@@ -182,11 +183,12 @@
           "acceptance": [
             "Frontmatter description explains the trigger (writing or reviewing code before finalizing).",
             "Body enumerates at minimum: monolithic files (>~300 lines), 3+ duplication rule, no impurity in pure zones, deep-nesting smell, magic values, vague names, commented-out code, implicit contracts.",
-            "Content is code-agnostic."
+            "Content is code-agnostic.",
+            "Skill is discoverable by the Claude Code harness."
           ],
           "depends_on": [],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         },
         {
@@ -196,11 +198,12 @@
           "acceptance": [
             "Frontmatter description identifies the trigger: acting as Reviewer in the tap-tool Ralph loop.",
             "Body covers: per-criterion classification (Satisfied / Not satisfied / Partial), zero-trust verification steps, scope-check (nothing touched outside task.files), verdict rules (PASS only when every criterion satisfied + tests green + no anti-pattern violations).",
-            "Body references the <eval:verdict> schema but defers full emission details to REVIEWER_CONTRACT.md."
+            "Body references the <eval:verdict> schema but defers full emission details to REVIEWER_CONTRACT.md.",
+            "Skill is discoverable by the Claude Code harness."
           ],
           "depends_on": [],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         },
         {
@@ -210,12 +213,13 @@
           "acceptance": [
             "Template contains handlebars placeholders for: feature_goal, feature_constraints, task_id, task_title, task_files, task_acceptance, specs_path, contract_path, prior_eval_path, git_status.",
             "Template ends with an explicit kickoff directive (`## Begin now.` or equivalent).",
-            "Template uses triple-brace `{{{ }}}` or an escape strategy for any placeholder that may carry `{{` in user text (e.g. feature_constraints, task_acceptance).",
+            "Template uses triple-brace `{{{ }}}` for every placeholder that may carry user-authored text with `{{` in it (feature_goal, feature_constraints items, task_title, task_files items, task_acceptance items, git_status); double-brace is reserved for controlled IDs/paths (task_id, specs_path, contract_path).",
+            "`prior_eval_path` is wrapped in an `{{#if prior_eval_path}}…{{/if}}` conditional so the block is omitted on attempt 1.",
             "Handlebars.compile on the file succeeds."
           ],
           "depends_on": [],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         },
         {
@@ -225,12 +229,13 @@
           "acceptance": [
             "Template contains handlebars placeholders for: task_id, task_title, task_files, task_acceptance, specs_path, contract_path, eval_path.",
             "Template explicitly instructs writing EVAL_RESULT.md at {{eval_path}} via the Write tool, with the verdict/rationale/issues block format shown inline.",
+            "Triple-brace `{{{ }}}` applied to user-text placeholders (task_title, task_files items, task_acceptance items); double-brace for controlled IDs/paths.",
             "Template ends with an explicit kickoff directive.",
             "Handlebars.compile on the file succeeds."
           ],
           "depends_on": [],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         }
       ]
