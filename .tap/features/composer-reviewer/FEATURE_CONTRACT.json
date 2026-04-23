@@ -33,8 +33,8 @@
             "`import Handlebars from \"handlebars\"` resolves under tsc."
           ],
           "depends_on": [],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         },
         {
@@ -42,30 +42,36 @@
           "title": "Rename existing ambient type files to PascalCase",
           "files": [
             "src/types/AgentRunner.d.ts",
-            "src/types/LoopRunner.d.ts"
+            "src/types/LoopRunner.d.ts",
+            "src/services/LoopRunner.ts"
           ],
           "acceptance": [
             "src/types/agent-runner.d.ts is removed and its content lives at src/types/AgentRunner.d.ts.",
             "src/types/loop-runner.d.ts is removed and its content lives at src/types/LoopRunner.d.ts.",
-            "`bunx tsc --noEmit` passes after rename."
+            "`bunx tsc --noEmit` passes after rename.",
+            "LoopRunner.d.ts wraps declarations in `declare global { ... }` so interfaces remain ambient globals under `moduleDetection: \"force\"` (the stray `import type { Effect }` otherwise makes the file a module).",
+            "Stale `AgentResult` interface is dropped; AgentRunner.d.ts is left as a placeholder populated by S1.T4.",
+            "Stale path-import in src/services/LoopRunner.ts is removed (ambient types resolve without module import)."
           ],
           "depends_on": [],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         },
         {
           "id": "S1.T3",
-          "title": "Author Contract.d.ts (Task, Story, Feature)",
+          "title": "Author Contract.d.ts (Task, Story, Feature) with branded ID + path types",
           "files": ["src/types/Contract.d.ts"],
           "acceptance": [
             "Contract.d.ts declares ambient global types Task, Story, Feature matching DESIGN.md §2 shape (Task fields: id, title, files, acceptance, depends_on, status, attempts, maxAttempts; Story: id, title, acceptance, tasks; Feature: feature, goal, constraints, stories).",
             "Status union is exactly `\"pending\" | \"in_progress\" | \"done\" | \"failed\"`.",
+            "Declares a generic `Brand<T, B>` helper and three concrete branded types — `TaskId`, `StoryId`, `AbsolutePath` — globally available to downstream type files.",
+            "Task.id is `TaskId`, Task.depends_on is `readonly TaskId[]`, Task.files is `readonly AbsolutePath[]`, Story.id is `StoryId`.",
             "`bunx tsc --noEmit` passes."
           ],
           "depends_on": ["S1.T2"],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         },
         {
@@ -75,12 +81,12 @@
           "acceptance": [
             "AgentEvent is a discriminated union with variants `system`, `assistant`, `user`, `result` carrying the fields listed in SPECS.md <feature:shape>.",
             "ContentBlock union covers `text`, `tool_use`, `tool_result`.",
-            "An `AgentRunOptions` type declares { role: \"Composer\" | \"Reviewer\"; stdin: string; cwd: string; attempt: number; logPath: string; stderrLogPath: string; evalPath?: string }.",
+            "An `AgentRunOptions` type declares { role: \"Composer\" | \"Reviewer\"; stdin: string; cwd: AbsolutePath; attempt: number; logPath: AbsolutePath; stderrLogPath: AbsolutePath; evalPath?: AbsolutePath } — path fields use the `AbsolutePath` brand from Contract.d.ts.",
             "`bunx tsc --noEmit` passes."
           ],
-          "depends_on": ["S1.T2"],
-          "status": "pending",
-          "attempts": 0,
+          "depends_on": ["S1.T2", "S1.T3"],
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         },
         {
@@ -88,14 +94,14 @@
           "title": "Author RunTask.d.ts (TaskResult, EvalIssue, RunTaskError)",
           "files": ["src/types/RunTask.d.ts"],
           "acceptance": [
-            "EvalIssue fields: acceptanceFailed, file, problem, suggestedFix.",
-            "TaskResult fields: taskId, attempt, verdict, rationale, issues, composerLogPath, reviewerLogPath, evalResultPath, durationMs.",
-            "RunTaskError is a tagged union covering exactly the eight variants listed in SPECS.md <feature:shape>.",
+            "EvalIssue fields: acceptanceFailed, file (AbsolutePath), problem, suggestedFix.",
+            "TaskResult fields: taskId (TaskId), attempt, verdict, rationale, issues, composerLogPath (AbsolutePath), reviewerLogPath (AbsolutePath), evalResultPath (AbsolutePath), durationMs.",
+            "RunTaskError is a tagged union covering exactly the eight variants listed in SPECS.md <feature:shape>; path fields in EvalResultMissing and FilesystemError use the `AbsolutePath` brand.",
             "`bunx tsc --noEmit` passes."
           ],
-          "depends_on": ["S1.T2"],
-          "status": "pending",
-          "attempts": 0,
+          "depends_on": ["S1.T2", "S1.T3"],
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         },
         {
@@ -106,13 +112,13 @@
             "src/types/EvalParser.d.ts"
           ],
           "acceptance": [
-            "ContextEngine.d.ts declares the RenderInput type { task: Task; feature: Feature; specsPath: string; contractPath: string; featureRoot: string; attempt: number; priorEvalPath: string | null; gitStatus: string } and a TemplateRenderError type { _tag: \"TemplateRenderFailed\"; template: string; missingKey: string }.",
-            "EvalParser.d.ts declares EvalResult { verdict: \"PASS\" | \"FAIL\"; rationale: string; issues: EvalIssue[] } and EvalParseError aligned with the RunTaskError tagged union.",
+            "ContextEngine.d.ts declares the RenderInput type { task: Task; feature: Feature; specsPath: AbsolutePath; contractPath: AbsolutePath; featureRoot: AbsolutePath; attempt: number; priorEvalPath: AbsolutePath | null; gitStatus: string } and a TemplateRenderError type { _tag: \"TemplateRenderFailed\"; template: string; missingKey: string }.",
+            "EvalParser.d.ts declares EvalResult { verdict: \"PASS\" | \"FAIL\"; rationale: string; issues: ReadonlyArray<EvalIssue> } and EvalParseError = Extract<RunTaskError, { _tag: \"EvalParseFailed\" | \"EvalResultMissing\" }> (aligned with the RunTaskError tagged union via Extract, single source of truth in RunTask.d.ts).",
             "`bunx tsc --noEmit` passes."
           ],
           "depends_on": ["S1.T3", "S1.T5"],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         }
       ]
