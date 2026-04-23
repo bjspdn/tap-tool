@@ -5,8 +5,6 @@ type EvalIssue = {
   readonly suggestedFix: string;
 };
 
-type PingType = 'pong';
-
 type TaskResult = {
   readonly taskId: TaskId;
   readonly attempt: number;

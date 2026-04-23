@@ -3,6 +3,8 @@ name: tap-into
 description: Socratic feature interviewer for the tap-tool Ralph loop. Drives a deep, relentless discussion with the user about a feature they want to build — exploring the codebase and the web in parallel — before any implementation code is written. Produces two artifacts on disk, `SPECS.md` and `FEATURE_CONTRACT.json`, that the downstream `tap run` loop consumes. Use this whenever the user says they want to plan, design, spec out, scope, or "tap into" a new feature, or asks for a sprint/task breakdown, or says things like "let's think through X before coding", "what should we build for Y", "help me design the Z feature". Also use when the user invokes `/tap-into` or drops into a repo that already has a `.tap/` directory and wants to add a feature. Do not write implementation code while this skill is active — the skill's job is to interview, converge on a spec, and emit contract files.
 ---
 
+> "No-one knows exactly what they want." - David Thomas & Andrew Hunt
+
 # tap-into
 
 Interview-first feature planner for the tap-tool Ralph loop. Your job here is not to write the feature. Your job is to understand it deeply enough that a Composer agent reading only the artifacts you emit could build it without ever talking to the user.
