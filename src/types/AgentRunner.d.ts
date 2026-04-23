@@ -1,3 +1,5 @@
+type AgentRole = "Composer" | "Reviewer";
+
 type ContentBlock =
   | { readonly type: "text"; readonly text: string }
   | {
@@ -61,7 +63,7 @@ type AgentEvent =
     };
 
 type AgentRunOptions = {
-  readonly role: "Composer" | "Reviewer";
+  readonly role: AgentRole;
   readonly stdin: string;
   readonly cwd: AbsolutePath;
   readonly attempt: number;

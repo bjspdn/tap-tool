@@ -96,7 +96,7 @@
           "acceptance": [
             "EvalIssue fields: acceptanceFailed, file (AbsolutePath), problem, suggestedFix.",
             "TaskResult fields: taskId (TaskId), attempt, verdict, rationale, issues, composerLogPath (AbsolutePath), reviewerLogPath (AbsolutePath), evalResultPath (AbsolutePath), durationMs.",
-            "RunTaskError is a tagged union covering exactly the eight variants listed in SPECS.md <feature:shape>; path fields in EvalResultMissing and FilesystemError use the `AbsolutePath` brand.",
+            "RunTaskError is a tagged union covering six variants: AgentSpawnFailed (carries role), AgentMaxTurnsExceeded (carries role), EvalResultMissing, EvalParseFailed, TemplateRenderFailed, FilesystemError. Amended from the original eight-variant shape to make role a data-level concern, enabling future roles without type-topology changes. Path fields in EvalResultMissing and FilesystemError use the `AbsolutePath` brand.",
             "`bunx tsc --noEmit` passes."
           ],
           "depends_on": ["S1.T2", "S1.T3"],
@@ -347,16 +347,16 @@
           "files": ["src/services/AgentRunner.ts"],
           "acceptance": [
             "Uses `@effect/platform` Command + CommandExecutor from `@effect/platform-bun` to spawn the fixed command with stdin fed from AgentRunOptions.stdin.",
-            "Parses stdout line-by-line as NDJSON, decodes each line into AgentEvent via `effect/Schema`, tees raw lines to AgentRunOptions.logPath.",
+            "Parses stdout line-by-line as NDJSON, decodes each line into AgentEvent via `effect/Schema` (exposed as the exported `AgentEventSchema`; per-line decode via exported `decodeAgentEventLine(line)`); tees raw lines to AgentRunOptions.logPath.",
             "Tees stderr to AgentRunOptions.stderrLogPath.",
             "Never passes `detached: true`. On Effect interruption, sends SIGTERM to the child process via the Command API.",
-            "Exposes `AgentRunner` Tag with method `run(opts: AgentRunOptions): Effect<{ events: AgentEvent[]; result: AgentEvent & { type: 'result' } }, ComposerSpawnFailed | ReviewerSpawnFailed | ComposerMaxTurnsExceeded | ReviewerMaxTurnsExceeded | FilesystemError>`.",
-            "Maps `result.subtype === 'error_max_turns'` to the role-specific MaxTurnsExceeded tagged error.",
+            "Exposes `AgentRunner` Tag with method `run(opts: AgentRunOptions): Effect<{ events: ReadonlyArray<AgentEvent>; result: Extract<AgentEvent, { type: 'result' }> }, AgentSpawnFailed | AgentMaxTurnsExceeded | FilesystemError, FileSystem.FileSystem>` — the service's R channel carries `FileSystem.FileSystem` as an upper bound so both `AgentRunnerLive` (which closes over FS at construction) and `AgentRunnerEcho` (which acquires FS inside `run`) satisfy the same interface without residual Layer requirements under `Layer.merge`.",
+            "Maps `result.subtype === 'error_max_turns'` to AgentMaxTurnsExceeded carrying `role` as data; non-zero exit → AgentSpawnFailed with role + captured stderr; FileSystem errors during log tee → FilesystemError with branded path.",
             "`bunx tsc --noEmit` passes."
           ],
           "depends_on": ["S1.T4", "S1.T5"],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         },
         {
@@ -364,31 +364,36 @@
           "title": "Implement AgentRunnerEcho fake layer",
           "files": ["src/services/AgentRunner.ts"],
           "acceptance": [
-            "Exports `AgentRunnerEcho(script)` returning a `Layer<AgentRunner>` where `script` is `{ Composer: { events: AgentEvent[]; exit: { _tag: 'ok' | 'maxTurns' | 'spawnFail' } }; Reviewer: same + evalFileContent?: string }`.",
+            "Exports `AgentRunnerEcho(script)` returning `Layer<AgentRunner, never, never>` (FileSystem acquired inside `run` rather than at Layer construction, so `Layer.merge(AgentRunnerEcho(script), BunContext.layer)` composes with no residual requirements — see S5.T1 note on the service-interface R channel).",
+            "Script shape: `AgentRunnerEchoScript` is `Readonly<Record<AgentRole, RoleScript>>` where `RoleScript` (separately exported) has `{ events: ReadonlyArray<AgentEvent>; exit: ok | maxTurns | spawnFail; evalFileContent?: string }`. `evalFileContent` is structurally optional on all roles; the Echo layer writes it only when role === 'Reviewer' AND the field is present — no semantic change.",
             "When invoked with role='Reviewer' and `evalFileContent` is present, writes that string to AgentRunOptions.evalPath via FileSystem before emitting the scripted result.",
-            "Respects the scripted exit and returns the matching tagged error when not `ok`.",
+            "Tees scripted events as JSONL to AgentRunOptions.logPath (same format the Live layer writes) so tests can verify log files exist on disk with the expected content.",
+            "Respects the scripted exit and returns the matching role-specific tagged error when not `ok`.",
             "Does not spawn any real process.",
             "`bunx tsc --noEmit` passes."
           ],
           "depends_on": ["S5.T1"],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         },
         {
           "id": "S5.T3",
           "title": "Tests for AgentRunner (Echo + schema roundtrip)",
-          "files": ["src/services/__test__/AgentRunner.test.ts"],
+          "files": ["src/services/__tests__/AgentRunner.test.ts"],
           "acceptance": [
-            "Roundtrip test: a canned NDJSON fixture of system/assistant/tool_use/tool_result/result events decodes into the AgentEvent union without loss of known fields.",
-            "Echo test: scripted Composer `ok` then scripted Reviewer that writes EVAL_RESULT.md produces the expected log files on disk and yields the `result` event in both cases.",
-            "Echo test for `error_max_turns` exit yields the role-specific MaxTurnsExceeded tagged error.",
-            "`bun test src/services/__test__/AgentRunner.test.ts` passes.",
-            "AgentRunnerLive is NOT exercised in this test file — it is manual/integration only."
+            "Test file lives at `src/services/__tests__/AgentRunner.test.ts` (plural `__tests__/` per CLAUDE.md; amends the earlier singular path in this contract, matching the S3.T2 / S4.T2 precedent).",
+            "Roundtrip test: a canned NDJSON fixture containing one event per AgentEvent variant (system; assistant with text + tool_use + tool_result content blocks; user; result with subtype='success') decodes via `decodeAgentEventLine` without loss of known fields; a second assertion decodes the parsed object directly via `Schema.decodeUnknown(AgentEventSchema)` and yields the same result.",
+            "Echo test: scripted Composer `ok` then scripted Reviewer with `evalFileContent` — both `run` calls yield `{ events, result }` with `result.subtype === 'success'`; the Composer jsonl log, Reviewer jsonl log, and EVAL_RESULT.md all exist on disk with the expected content.",
+            "Echo test for `maxTurns` exit: one test per role — Composer maxTurns yields `{ _tag: 'AgentMaxTurnsExceeded', role: 'Composer' }`; Reviewer maxTurns yields `{ _tag: 'AgentMaxTurnsExceeded', role: 'Reviewer' }`.",
+            "FileSystem provided via `BunContext.layer` from `@effect/platform-bun`; tmp dirs under `.tap/tmp/agentrunner-test-<uuid>/` with `afterEach`/`afterAll` cleanup.",
+            "No `any`, no `as unknown as`; brand-construction uses a single narrow `brand<B>(s)` helper with one `as` cast, matching ContextEngine.test.ts / EvalParser.test.ts.",
+            "AgentRunnerLive is NOT exercised in this test file — manual/integration only, explicitly excluded.",
+            "`bun test src/services/__tests__/AgentRunner.test.ts` passes (5 tests); full `bun test` suite also passes (14 tests, 96 expect calls)."
           ],
           "depends_on": ["S5.T1", "S5.T2"],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         }
       ]
