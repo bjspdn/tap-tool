@@ -106,6 +106,93 @@ Bad comments:
 
 If a comment explains something the code should have expressed directly, rewrite the code instead of the comment.
 
+## Make absence, alternatives, and failure explicit in types
+
+If a value can be absent, a function can fail, or a type can take multiple shapes, the type must say so, and the caller must handle every case. Runtime surprises become compile-time obligations.
+
+### Absence: use `Option<T>`, not `T | undefined | null`
+
+`undefined` and `null` leak through index access, partial types, deserialization, and external APIs. They also conflate several different meanings (uninitialized, intentionally-absent, not-yet-loaded, deleted) into one shape.
+
+Use `Option<T>` from `effect/Option` when a value may be absent:
+
+```typescript
+import { Option } from 'effect';
+
+// Not this:
+function findUser(id: UserId): User | undefined { ... }
+
+// This:
+function findUser(id: UserId): Option.Option<User> { ... }
+```
+
+The caller must now handle both cases explicitly — `Option.match`, `Option.getOrElse`, `Option.flatMap`. There's no way to accidentally pass `undefined` into code that expects a `User`.
+
+When *not* to use `Option`:
+- Function parameters with a natural default. `foo(x: number, y?: number)` is clearer than `foo(x: number, y: Option<number>)` at call sites.
+- External API boundaries where JSON null is unavoidable. Parse it into `Option` at the boundary, then use `Option` internally.
+
+### Alternatives: use discriminated unions, check exhaustiveness
+
+### Alternatives: use discriminated unions, check exhaustiveness
+
+When a value can take multiple shapes, represent it as a discriminated union with a `_tag` discriminator:
+
+```typescript
+type AgentEvent =
+  | { _tag: 'Started'; role: Role }
+  | { _tag: 'ToolCall'; name: string; args: unknown }
+  | { _tag: 'TextChunk'; text: string }
+  | { _tag: 'Completed'; exitCode: number };
+```
+
+Handle every variant using `Match` from `effect/Match`, with `Match.exhaustive` as the terminator:
+
+```typescript
+import { Match } from 'effect';
+
+const handle = Match.type<AgentEvent>().pipe(
+  Match.tag('Started', ({ role }) => start(role)),
+  Match.tag('ToolCall', ({ name, args }) => invoke(name, args)),
+  Match.tag('TextChunk', ({ text }) => append(text)),
+  Match.tag('Completed', ({ exitCode }) => finish(exitCode)),
+  Match.exhaustive,
+);
+```
+
+`Match.exhaustive` is the key move. If someone adds a new variant to `AgentEvent` and forgets to update `handle`, the compiler rejects the change. The bug is caught at compile time, not at 3am in production.
+
+Use `_tag` as the discriminator convention. Effect's built-in types use it throughout (`Option`, `Cause`, `Exit`), so matching the convention keeps everything interoperable with `Match.tag`.
+
+### Failure: use `Effect<A, E, R>`, not `throw`
+
+Thrown exceptions are hidden control flow. The caller doesn't know a function can throw unless they read its implementation. Effect makes failure a first-class type parameter: `Effect<A, E, R>` declares that the computation produces an `A` on success, an `E` on failure, and requires `R` from the environment.
+
+- Never `throw` in normal control flow. Return an `Effect` with a typed error channel.
+- Never swallow an `E`. Either handle it, propagate it, or explicitly convert it at a boundary (e.g., to an HTTP status).
+- Do not widen the error channel to `unknown` or `Error`. A function that can fail in three specific ways should have `E = FooError | BarError | BazError`. The whole point is compile-time handling.
+
+The only legitimate use of `throw` is for defects — invariant violations that should crash the process because no recovery is possible. Use `Effect.die` or `Effect.dieMessage` for these. Defects are not errors; they are bugs. To handle the success/failure pair of an `Effect`, use `Effect.match` (pure handlers) or `Effect.matchEffect` (effectful handlers). For access to the full `Cause` — distinguishing `Fail` (typed error), `Die` (defect), and `Interrupt` (fiber cancellation) — use `Effect.matchCause` or `Effect.matchCauseEffect`. Reach for `matchCause` when a defect or interruption needs different handling than a typed failure.
+
+### The combined picture
+
+A well-typed function in this codebase looks like:
+
+```typescript
+const fetchUserProfile = (id: UserId): Effect.Effect
+  Option.Option<UserProfile>,
+  ApiError | ParseError,
+  HttpClient
+> => ...
+```
+
+The signature tells the caller everything:
+- The result might not exist (`Option`).
+- The operation might fail in one of two specific ways (`ApiError | ParseError`).
+- It needs `HttpClient` in the environment (`R`).
+
+No hidden throws, no hidden nulls, no hidden dependencies. &Every possibility is surfaced in the type, and the compiler refuses to let any of them be ignored.
+
 ## When these principles conflict with the rules in CLAUDE.md
 
 Follow the principle. The rules are instantiations of the principles for common cases; when a specific situation doesn't fit the rule's shape, the principle is what you're actually trying to serve. Note the divergence in a TODO or an open question for the user.

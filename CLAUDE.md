@@ -16,13 +16,17 @@ The rules below exist to keep complexity from accumulating silently. When a rule
 
 - **Use branded types for identifiers and for primitives where mixing two values of the same underlying type would be a real bug**, BECAUSE the type system's job is to catch real confusions (`UserId` vs `PostId`), not to decorate every string. Over-branding adds noise that hides the brands that matter.
 
+- **Use `Option<T>` for values that may be absent, not `T | undefined | null`**, BECAUSE `undefined` and `null` leak silently through the codebase and conflate distinct meanings (uninitialized, absent, deleted, not-loaded). `Option` forces the caller to handle absence explicitly. See `philosophy/design-principles.md#absence`.
+
+- **Use discriminated unions with a `_tag` field for values that take multiple shapes, and check exhaustiveness with a `never`-typed default branch**, BECAUSE unhandled variants are one of the most common sources of production bugs, and the compiler can catch all of them if the pattern is set up correctly. See `philosophy/design-principles.md#alternatives`.
+
+- **Use `Effect<A, E, R>` for operations that can fail, not `throw`**, BECAUSE thrown exceptions are invisible control flow that the type system doesn't surface to callers. Effect's error channel makes every failure a type-checked obligation. Reserve `throw` (via `Effect.die`) for defects — invariant violations that should crash the process. See `philosophy/design-principles.md#failure`.
+
 - **PascalCase for files exporting a single class, component, or type namespace; camelCase for modules exporting multiple utilities; lowercase for entry points (`index.ts`, `cli.ts`)**, BECAUSE the filename signals the shape of the export to readers scanning the directory — a mismatch forces them to open the file to find out what's inside.
 
 ### Complexity and module design
 
 - **Prefer deep modules over shallow ones**, BECAUSE a module's interface is a complexity tax on every caller, while its implementation is a complexity cost paid once. Simple interfaces hiding substantial functionality are the goal. See `philosophy/design-principles.md#deep-modules`.
-
-- **Split files when they mix unrelated concerns, not when they get long**, BECAUSE file length is a weak signal; concern-mixing is a strong one. A 400-line file implementing one state machine is fine. A 150-line file that mixes HTTP parsing, business logic, and database writes is not. See `philosophy/design-principles.md#splitting`.
 
 - **When unsure whether something is "complex enough" to worry about, read `philosophy/design-principles.md`**, BECAUSE the rules above cover common cases, but structural decisions often don't fit any single rule. The philosophy file is the tiebreaker.
 
