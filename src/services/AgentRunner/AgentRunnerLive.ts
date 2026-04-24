@@ -1,4 +1,4 @@
-import { Effect, Fiber, Layer, Stream } from "effect";
+import { Effect, Fiber, Layer, Option, Stream } from "effect";
 import { Command, FileSystem } from "@effect/platform";
 import { CommandExecutor } from "@effect/platform";
 import { AgentRunner, spawnFailed, maxTurnsExceeded, filesystemError } from "./AgentRunner";
@@ -99,13 +99,18 @@ export const AgentRunnerLive: Layer.Layer<
                               filesystemError(logPath, cause),
                           ),
                         );
-                      const event = yield* decodeAgentEventLine(line).pipe(
-                        Effect.mapError(
-                          (cause): RunError =>
-                            spawnFailed(role, 1, String(cause)),
-                        ),
+                      // Decode for in-memory `events`. Lines that do not match
+                      // any known AgentEvent variant (e.g. `rate_limit_event`,
+                      // or any new event type Anthropic adds later) are skipped
+                      // silently — the raw line is already on disk in logPath,
+                      // and only `result` events are load-bearing for pipeline
+                      // control flow, which stays in the typed union.
+                      const decoded = yield* Effect.option(
+                        decodeAgentEventLine(line),
                       );
-                      events.push(event);
+                      if (Option.isSome(decoded)) {
+                        events.push(decoded.value);
+                      }
                     }),
                 ),
               );
