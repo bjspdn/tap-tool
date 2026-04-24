@@ -1,12 +1,12 @@
 import { describe, test, expect, afterAll } from "bun:test";
 import * as path from "node:path";
-import { Effect, Exit, Layer } from "effect";
+import { Effect, Exit, Layer, Option } from "effect";
 import { FileSystem } from "@effect/platform";
 import { BunContext } from "@effect/platform-bun";
 import { AgentRunnerEcho, type AgentRunnerEchoScript } from "../AgentRunner";
 import { ContextEngineLive } from "../ContextEngine";
 import { EvalParserLive } from "../EvalParser";
-import { runTask, type RunTaskPaths } from "../RunTask";
+import { runTask, RunTask, RunTaskLive, type RunTaskPaths } from "../RunTask";
 import { brand } from "../brand";
 
 // ---------------------------------------------------------------------------
@@ -52,6 +52,8 @@ const makePaths = (featureRoot: AbsolutePath, attempt = 1): RunTaskPaths => ({
   specsPath: brand<"AbsolutePath">(".tap/features/composer-reviewer/SPECS.md"),
   contractPath: brand<"AbsolutePath">(".tap/features/composer-reviewer/FEATURE_CONTRACT.json"),
   attempt,
+  priorEvalPath: Option.none(),
+  gitStatus: "",
 });
 
 // ---------------------------------------------------------------------------
@@ -389,5 +391,45 @@ describe("RunTask", () => {
     } else {
       throw new Error(`Unexpected exit: ${JSON.stringify(exit)}`);
     }
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 6 — RunTask Tag wiring
+  // -------------------------------------------------------------------------
+
+  test("RunTask Tag — Tag-based run delegates to runTask, returns PASS TaskResult", async () => {
+    const featureRoot = brand<"AbsolutePath">(`${TMP_ROOT}/test-tag-wiring`);
+    const task = makeTask();
+    const feature = makeFeature();
+    const paths = makePaths(featureRoot, 1);
+
+    const script: AgentRunnerEchoScript = {
+      Composer: {
+        events: [makeAssistantEvent("sess-c"), makeResultEvent("sess-c")],
+        exit: { _tag: "ok" },
+      },
+      Reviewer: {
+        events: [makeAssistantEvent("sess-r"), makeResultEvent("sess-r")],
+        exit: { _tag: "ok" },
+        evalFileContent: CANNED_PASS,
+      },
+    };
+
+    const program = Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      yield* fs.makeDirectory(featureRoot, { recursive: true });
+      const rt = yield* RunTask;
+      return yield* rt.run(task, feature, paths);
+    });
+
+    const testLayer = makeTestLayer(script).pipe(Layer.provideMerge(RunTaskLive));
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testLayer)),
+    );
+
+    expect(result.verdict).toBe("PASS");
+    expect(result.taskId).toBe(task.id);
+    expect(result.attempt).toBe(paths.attempt);
   });
 });

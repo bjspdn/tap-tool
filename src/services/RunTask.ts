@@ -1,4 +1,4 @@
-import { Clock, Effect, Option } from "effect";
+import { Clock, Context, Effect, Layer, Option } from "effect";
 import { FileSystem } from "@effect/platform";
 import { AgentRunner, filesystemError } from "./AgentRunner";
 import { ContextEngine } from "./ContextEngine";
@@ -20,6 +20,8 @@ export type RunTaskPaths = {
   readonly specsPath: AbsolutePath;
   readonly contractPath: AbsolutePath;
   readonly attempt: number;
+  readonly priorEvalPath: Option.Option<AbsolutePath>;
+  readonly gitStatus: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -125,8 +127,6 @@ export const runTask = (
     const startMs = yield* Clock.currentTimeMillis;
 
     // Step 5 — Render Composer contract.
-    // TODO: thread priorEval from caller — LoopRunner owns retry state — revisit when LoopRunner lands
-    // TODO: populate gitStatus via `git status --short` — deferred until first real Composer run — revisit with LoopRunner
     const composerPrompt = yield* engine.renderComposer({
       task,
       feature,
@@ -134,8 +134,8 @@ export const runTask = (
       contractPath: paths.contractPath,
       featureRoot: paths.featureRoot,
       attempt: paths.attempt,
-      priorEval: Option.none(),
-      gitStatus: "",
+      priorEval: paths.priorEvalPath,
+      gitStatus: paths.gitStatus,
     });
 
     // Step 6 — Run Composer.
@@ -189,3 +189,34 @@ export const runTask = (
       durationMs,
     } satisfies TaskResult;
   });
+
+// ---------------------------------------------------------------------------
+// RunTask Tag + Live layer
+// ---------------------------------------------------------------------------
+
+/**
+ * Context.Tag for the runTask pipeline.
+ * Consumers yield* RunTask then call rt.run(...) inside an Effect.gen.
+ */
+export class RunTask extends Context.Tag("RunTask")<
+  RunTask,
+  {
+    readonly run: (
+      task: Task,
+      feature: Feature,
+      paths: RunTaskPaths,
+    ) => Effect.Effect<
+      TaskResult,
+      RunTaskError,
+      AgentRunner | ContextEngine | EvalParser | FileSystem.FileSystem
+    >;
+  }
+>() {}
+
+/**
+ * Live layer — delegates directly to the plain `runTask` function.
+ */
+export const RunTaskLive: Layer.Layer<RunTask, never, never> = Layer.succeed(
+  RunTask,
+  RunTask.of({ run: runTask }),
+);
