@@ -1,0 +1,42 @@
+{
+  "feature": "smoke-test",
+  "goal": "Smoke test feature goal.",
+  "constraints": [
+    "No real constraints."
+  ],
+  "stories": [
+    {
+      "id": "S1",
+      "title": "Story 1",
+      "acceptance": [],
+      "tasks": [
+        {
+          "id": "T1",
+          "title": "Task T1",
+          "files": [],
+          "acceptance": [
+            "Smoke test acceptance criterion."
+          ],
+          "depends_on": [],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        },
+        {
+          "id": "T2",
+          "title": "Task T2",
+          "files": [],
+          "acceptance": [
+            "Smoke test acceptance criterion."
+          ],
+          "depends_on": [
+            "T1"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        }
+      ]
+    }
+  ]
+}
