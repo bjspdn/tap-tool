@@ -101,7 +101,7 @@ const AgentEventResultSchema = Schema.Struct({
   type: Schema.Literal("result"),
   subtype: Schema.String,
   is_error: Schema.Boolean,
-  api_error_status: Schema.optional(Schema.Number),
+  api_error_status: Schema.optional(Schema.NullOr(Schema.Number)),
   num_turns: Schema.Number,
   session_id: Schema.optional(Schema.String),
   total_cost_usd: Schema.optional(Schema.Number),

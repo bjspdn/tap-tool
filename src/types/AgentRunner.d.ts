@@ -71,7 +71,7 @@ type AgentEvent =
         | "error_during_execution"
         | string;
       readonly is_error: boolean;
-      readonly api_error_status?: number;
+      readonly api_error_status?: number | null;
       readonly num_turns: number;
       readonly session_id?: string;
       readonly total_cost_usd?: number;

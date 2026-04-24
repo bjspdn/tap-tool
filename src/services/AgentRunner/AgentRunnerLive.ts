@@ -1,4 +1,4 @@
-import { Effect, Fiber, Layer, Option, Stream } from "effect";
+import { Effect, Either, Fiber, Layer, Option, Stream } from "effect";
 import { Command, FileSystem } from "@effect/platform";
 import { CommandExecutor } from "@effect/platform";
 import { AgentRunner, spawnFailed, maxTurnsExceeded, filesystemError, rateLimited } from "./AgentRunner";
@@ -62,6 +62,7 @@ export const AgentRunnerLive: Layer.Layer<
           );
 
           const events: AgentEvent[] = [];
+          const parseFailures: Array<{ line: string; error: string }> = [];
           let rateLimitResetsAt: Option.Option<number> = Option.none();
           const stderrChunks: Uint8Array[] = [];
           const stderrStr = (): string =>
@@ -100,22 +101,26 @@ export const AgentRunnerLive: Layer.Layer<
                               filesystemError(logPath, cause),
                           ),
                         );
-                      // Decode for in-memory `events`. Lines that don't match
-                      // any known variant are skipped silently — the raw line is
-                      // already on disk in logPath.
-                      const decoded = yield* Effect.option(
+                      // Decode for in-memory `events`. Parse failures are
+                      // collected (not silently dropped) so a missing result
+                      // event can surface the underlying schema mismatch.
+                      const decoded = yield* Effect.either(
                         decodeAgentEventLine(line),
                       );
-                      if (Option.isSome(decoded)) {
-                        const event = decoded.value;
+                      if (Either.isRight(decoded)) {
+                        const event = decoded.right;
                         events.push(event);
-                        // Track rate-limit signal so the result handler can fail fast.
                         if (
                           event.type === "rate_limit_event" &&
                           event.rate_limit_info.status === "rejected"
                         ) {
                           rateLimitResetsAt = Option.some(event.rate_limit_info.resetsAt);
                         }
+                      } else {
+                        parseFailures.push({
+                          line: line.length > 240 ? line.slice(0, 240) + "…" : line,
+                          error: String(decoded.left),
+                        });
                       }
                     }),
                 ),
@@ -174,9 +179,11 @@ export const AgentRunnerLive: Layer.Layer<
           );
 
           if (!resultEvent) {
-            return yield* Effect.fail(
-              spawnFailed(role, 0, "No result event found in stdout"),
-            );
+            const first = parseFailures[0];
+            const detail = first
+              ? `No result event decoded. ${parseFailures.length} line(s) failed schema decode; first failure:\n  error: ${first.error}\n  line:  ${first.line}`
+              : "No result event found in stdout (no parse failures — stream may have been empty or truncated)";
+            return yield* Effect.fail(spawnFailed(role, 0, detail));
           }
 
           // Rate-limit takes priority: either a preceding rate_limit_event set the
