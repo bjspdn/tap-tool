@@ -412,34 +412,39 @@
           "title": "Implement runTask orchestration",
           "files": ["src/services/RunTask.ts"],
           "acceptance": [
-            "Effect signature: `runTask(task: Task, feature: Feature, paths: { featureRoot: string; specsPath: string; contractPath: string; attempt: number }): Effect<TaskResult, RunTaskError, AgentRunner | ContextEngine | EvalParser | FileSystem>`.",
-            "Steps in order: compute log paths + eval path from `paths` and `attempt`; ensure log directory exists; render Composer contract; invoke AgentRunner for Composer; render Reviewer contract (with eval_path placeholder filled); invoke AgentRunner for Reviewer; read EVAL_RESULT.md via FileSystem (raise EvalResultMissing if absent); parse with EvalParser; assemble TaskResult with durationMs measured via Clock.",
-            "Every service error is mapped into the RunTaskError tagged union; no raw Effect errors leak out.",
+            "Effect signature: `runTask(task: Task, feature: Feature, paths: RunTaskPaths): Effect<TaskResult, RunTaskError, AgentRunner | ContextEngine | EvalParser | FileSystem>` where `RunTaskPaths = { featureRoot: AbsolutePath; specsPath: AbsolutePath; contractPath: AbsolutePath; attempt: number }`. Paths refined from raw `string` to `AbsolutePath` for consistency with `TaskResult`'s branded outputs and with `ComposerRenderInput` / `ReviewerRenderInput` shapes (retroactive amendment).",
+            "Steps in order: compute log paths + eval path from `paths` and `attempt` (iter-NNN zero-padded); `Clock.currentTimeMillis` for start; ensure `<featureRoot>/logs/<task.id>` and `<featureRoot>/eval` directories exist via `fs.makeDirectory({ recursive: true })` (errors → `FilesystemError`); render Composer contract (`priorEval: Option.none()` and `gitStatus: \"\"` for v0 — both marked TODO for LoopRunner-owned retry state); invoke AgentRunner for Composer; render Reviewer contract with `evalPath` filled; invoke AgentRunner for Reviewer; check eval path exists via `fs.exists` → raise `EvalResultMissing` if absent; read raw content → parse with EvalParser; Clock end; assemble TaskResult with branded paths + `durationMs`.",
+            "Every service error already lives in the RunTaskError tagged union through the service signatures — no raw Effect errors leak out; the two FS boundary errors (`makeDirectory` + `readFileString` + `exists`) are mapped to `FilesystemError` with branded `path`.",
+            "Reuses the exported `filesystemError` constructor from `./AgentRunner` (added to the barrel `index.ts` re-exports alongside existing Tag + layers).",
+            "No `any`, no `as unknown as`; a single narrow `brand<B>(s)` helper is the only type cast at the path-branding boundary (one `as`, six branded outputs).",
             "`bunx tsc --noEmit` passes."
           ],
           "depends_on": [
             "S1.T3", "S1.T4", "S1.T5", "S1.T6",
             "S3.T1", "S4.T1", "S5.T1", "S5.T2"
           ],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         },
         {
           "id": "S6.T2",
           "title": "Integration test for runTask",
-          "files": ["src/services/__test__/RunTask.test.ts"],
+          "files": ["src/services/__tests__/RunTask.test.ts"],
           "acceptance": [
-            "PASS fixture: Composer scripted 'ok' + Reviewer scripted with a canned PASS EVAL_RESULT.md yields a TaskResult with verdict='PASS', issues=[], and all three log/eval paths existing on disk.",
-            "FAIL fixture: Reviewer scripted with a canned FAIL EVAL_RESULT.md (two issues) yields a TaskResult with verdict='FAIL' and the two EvalIssues correctly mapped.",
-            "Composer max-turns fixture yields `ComposerMaxTurnsExceeded` — Reviewer is never invoked.",
-            "Reviewer returns 'ok' but no EVAL_RESULT.md on disk → yields `EvalResultMissing` with the expected path.",
-            "Reviewer writes malformed EVAL_RESULT.md → yields `EvalParseFailed` with `rawContent` populated.",
-            "`bun test src/services/__test__/RunTask.test.ts` passes."
+            "Test file lives at `src/services/__tests__/RunTask.test.ts` (plural `__tests__/` per CLAUDE.md; amends the earlier singular path in this contract, matching the S3.T2 / S4.T2 / S5.T3 precedent).",
+            "PASS fixture: Composer scripted `ok` + Reviewer scripted with a canned PASS EVAL_RESULT.md yields a TaskResult with `verdict='PASS'`, `issues=[]`, all three log/eval paths existing on disk (verified via `fs.exists`), `durationMs >= 0`, `taskId === task.id`, `attempt === paths.attempt`.",
+            "FAIL fixture: Reviewer scripted with a canned FAIL EVAL_RESULT.md (two issues) yields a TaskResult with `verdict='FAIL'` and the two EvalIssues correctly mapped (snake_case → camelCase, `file` branded as `AbsolutePath`).",
+            "Composer max-turns fixture yields `{ _tag: 'AgentMaxTurnsExceeded', role: 'Composer' }` (post-refactor shape — amends the contract's earlier `ComposerMaxTurnsExceeded` naming); the Reviewer log path does NOT exist on disk, proving the pipeline short-circuited before Reviewer.",
+            "Reviewer returns `ok` but no EVAL_RESULT.md on disk → yields `EvalResultMissing` with `expectedPath` equal to `<featureRoot>/eval/EVAL_RESULT.md`.",
+            "Reviewer writes malformed EVAL_RESULT.md (unterminated YAML string inside `<eval:issues>`) → yields `EvalParseFailed` with `rawContent` populated verbatim.",
+            "Layer composition: `Layer.provideMerge(ContextEngineLive, BunContext.layer).pipe(Layer.merge(EvalParserLive), Layer.merge(AgentRunnerEcho(script)), Layer.provideMerge(BunContext.layer))` — real ContextEngineLive + real EvalParserLive + AgentRunnerEcho fake + BunContext for FileSystem.",
+            "No `any`, no `as unknown as`; brand-construction uses a single narrow `brand<B>(s)` helper with one `as` cast.",
+            "`bun test src/services/__tests__/RunTask.test.ts` passes (5 tests); full `bun test` suite also passes (19 tests across 4 files, 126 expect() calls)."
           ],
           "depends_on": ["S6.T1", "S4.T2", "S3.T2"],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         }
       ]
