@@ -26,8 +26,8 @@
           "depends_on": [
             "T1"
           ],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         }
       ]
