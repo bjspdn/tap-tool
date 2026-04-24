@@ -24,20 +24,10 @@
           "files": [],
           "acceptance": [],
           "depends_on": [
-            "T3"
+            "T1"
           ],
           "status": "pending",
           "attempts": 0,
-          "maxAttempts": 3
-        },
-        {
-          "id": "T3",
-          "title": "Task T3",
-          "files": [],
-          "acceptance": [],
-          "depends_on": [],
-          "status": "failed",
-          "attempts": 3,
           "maxAttempts": 3
         }
       ]

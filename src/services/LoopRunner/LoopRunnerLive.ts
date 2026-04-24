@@ -4,6 +4,7 @@ import { brand } from "../brand";
 import { FeatureContract } from "../FeatureContract";
 import { RunTask } from "../RunTask";
 import { captureGitStatus } from "./gitStatus";
+import { commitTask } from "./gitCommit";
 import { archivePriorEval } from "./archive";
 import { LoopRunner, MAX_ITERATIONS } from "./LoopRunner";
 
@@ -117,9 +118,10 @@ export const LoopRunnerLive: Layer.Layer<LoopRunner, never, never> = Layer.succe
           const isExhausted = attempt >= task.maxAttempts;
 
           if (isPass) {
-            // PASS → mark done + save + continue loop
+            // PASS → mark done + save + commit (best-effort) + continue loop
             feature = fc.markStatus(feature, task.id, "done");
             yield* fc.save(contractPath, feature);
+            yield* commitTask(featureRoot, task, contractPath);
           } else {
             // FAIL (or RunTask error) → retry or halt
             if (isExhausted) {
