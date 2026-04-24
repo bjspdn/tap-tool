@@ -3,6 +3,12 @@ type AgentRole = "Composer" | "Reviewer";
 type ContentBlock =
   | { readonly type: "text"; readonly text: string }
   | {
+      readonly type: "thinking";
+      readonly thinking: string;
+      readonly signature?: string;
+    }
+  | { readonly type: "redacted_thinking"; readonly data: string }
+  | {
       readonly type: "tool_use";
       readonly id: string;
       readonly name: string;

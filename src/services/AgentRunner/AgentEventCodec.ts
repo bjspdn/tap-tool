@@ -9,6 +9,17 @@ const ContentBlockTextSchema = Schema.Struct({
   text: Schema.String,
 });
 
+const ContentBlockThinkingSchema = Schema.Struct({
+  type: Schema.Literal("thinking"),
+  thinking: Schema.String,
+  signature: Schema.optional(Schema.String),
+});
+
+const ContentBlockRedactedThinkingSchema = Schema.Struct({
+  type: Schema.Literal("redacted_thinking"),
+  data: Schema.String,
+});
+
 const ContentBlockToolUseSchema = Schema.Struct({
   type: Schema.Literal("tool_use"),
   id: Schema.String,
@@ -30,6 +41,8 @@ const ContentBlockToolResultSchema = Schema.Struct({
 
 const ContentBlockSchema = Schema.Union(
   ContentBlockTextSchema,
+  ContentBlockThinkingSchema,
+  ContentBlockRedactedThinkingSchema,
   ContentBlockToolUseSchema,
   ContentBlockToolResultSchema,
 );
