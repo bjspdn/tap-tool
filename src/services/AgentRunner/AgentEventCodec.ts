@@ -66,6 +66,7 @@ const AgentEventSystemSchema = Schema.Struct(
 const AgentEventAssistantSchema = Schema.Struct({
   type: Schema.Literal("assistant"),
   session_id: Schema.optional(Schema.String),
+  error: Schema.optional(Schema.String),
   message: Schema.Struct({
     id: Schema.optional(Schema.String),
     role: Schema.Literal("assistant"),
@@ -83,10 +84,24 @@ const AgentEventUserSchema = Schema.Struct({
   }),
 });
 
+const AgentEventRateLimitSchema = Schema.Struct({
+  type: Schema.Literal("rate_limit_event"),
+  session_id: Schema.optional(Schema.String),
+  rate_limit_info: Schema.Struct({
+    status: Schema.Union(Schema.Literal("rejected"), Schema.Literal("allowed")),
+    resetsAt: Schema.Number,
+    rateLimitType: Schema.String,
+    overageStatus: Schema.optional(Schema.String),
+    overageDisabledReason: Schema.optional(Schema.String),
+    isUsingOverage: Schema.optional(Schema.Boolean),
+  }),
+});
+
 const AgentEventResultSchema = Schema.Struct({
   type: Schema.Literal("result"),
   subtype: Schema.String,
   is_error: Schema.Boolean,
+  api_error_status: Schema.optional(Schema.Number),
   num_turns: Schema.Number,
   session_id: Schema.optional(Schema.String),
   total_cost_usd: Schema.optional(Schema.Number),
@@ -106,13 +121,14 @@ const AgentEventResultSchema = Schema.Struct({
 /**
  * Schema for the AgentEvent discriminated union.
  * Extra fields on the `system` variant are preserved via an index signature.
- * The cast is sound: the four variant schemas structurally satisfy AgentEvent.
+ * The cast is sound: the five variant schemas structurally satisfy AgentEvent.
  */
 export const AgentEventSchema: Schema.Schema<AgentEvent, unknown> =
   Schema.Union(
     AgentEventSystemSchema,
     AgentEventAssistantSchema,
     AgentEventUserSchema,
+    AgentEventRateLimitSchema,
     AgentEventResultSchema,
   ) as Schema.Schema<AgentEvent, unknown>;
 

@@ -41,6 +41,19 @@ type AgentEvent =
         readonly model?: string;
       };
       readonly session_id?: string;
+      readonly error?: string;
+    }
+  | {
+      readonly type: "rate_limit_event";
+      readonly rate_limit_info: {
+        readonly status: "rejected" | "allowed";
+        readonly resetsAt: number;
+        readonly rateLimitType: string;
+        readonly overageStatus?: string;
+        readonly overageDisabledReason?: string;
+        readonly isUsingOverage?: boolean;
+      };
+      readonly session_id?: string;
     }
   | {
       readonly type: "user";
@@ -58,6 +71,7 @@ type AgentEvent =
         | "error_during_execution"
         | string;
       readonly is_error: boolean;
+      readonly api_error_status?: number;
       readonly num_turns: number;
       readonly session_id?: string;
       readonly total_cost_usd?: number;

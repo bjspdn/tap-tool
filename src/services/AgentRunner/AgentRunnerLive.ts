@@ -1,7 +1,7 @@
 import { Effect, Fiber, Layer, Option, Stream } from "effect";
 import { Command, FileSystem } from "@effect/platform";
 import { CommandExecutor } from "@effect/platform";
-import { AgentRunner, spawnFailed, maxTurnsExceeded, filesystemError } from "./AgentRunner";
+import { AgentRunner, spawnFailed, maxTurnsExceeded, filesystemError, rateLimited } from "./AgentRunner";
 import type { RunError } from "./AgentRunner";
 import { decodeAgentEventLine } from "./AgentEventCodec";
 
@@ -62,6 +62,7 @@ export const AgentRunnerLive: Layer.Layer<
           );
 
           const events: AgentEvent[] = [];
+          let rateLimitResetsAt: Option.Option<number> = Option.none();
           const stderrChunks: Uint8Array[] = [];
           const stderrStr = (): string =>
             Buffer.concat(stderrChunks).toString("utf-8");
@@ -99,17 +100,22 @@ export const AgentRunnerLive: Layer.Layer<
                               filesystemError(logPath, cause),
                           ),
                         );
-                      // Decode for in-memory `events`. Lines that do not match
-                      // any known AgentEvent variant (e.g. `rate_limit_event`,
-                      // or any new event type Anthropic adds later) are skipped
-                      // silently — the raw line is already on disk in logPath,
-                      // and only `result` events are load-bearing for pipeline
-                      // control flow, which stays in the typed union.
+                      // Decode for in-memory `events`. Lines that don't match
+                      // any known variant are skipped silently — the raw line is
+                      // already on disk in logPath.
                       const decoded = yield* Effect.option(
                         decodeAgentEventLine(line),
                       );
                       if (Option.isSome(decoded)) {
-                        events.push(decoded.value);
+                        const event = decoded.value;
+                        events.push(event);
+                        // Track rate-limit signal so the result handler can fail fast.
+                        if (
+                          event.type === "rate_limit_event" &&
+                          event.rate_limit_info.status === "rejected"
+                        ) {
+                          rateLimitResetsAt = Option.some(event.rate_limit_info.resetsAt);
+                        }
                       }
                     }),
                 ),
@@ -171,6 +177,18 @@ export const AgentRunnerLive: Layer.Layer<
             return yield* Effect.fail(
               spawnFailed(role, 0, "No result event found in stdout"),
             );
+          }
+
+          // Rate-limit takes priority: either a preceding rate_limit_event set the
+          // timestamp, or the result itself carries api_error_status 429.
+          if (
+            Option.isSome(rateLimitResetsAt) ||
+            (resultEvent.is_error && resultEvent.api_error_status === 429)
+          ) {
+            const resetsAt = Option.isSome(rateLimitResetsAt)
+              ? rateLimitResetsAt.value
+              : 0;
+            return yield* Effect.fail(rateLimited(role, resetsAt));
           }
 
           if (resultEvent.subtype === "error_max_turns") {

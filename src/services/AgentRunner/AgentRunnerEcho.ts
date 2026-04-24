@@ -1,6 +1,6 @@
 import { Effect, Layer } from "effect";
 import { FileSystem } from "@effect/platform";
-import { AgentRunner, spawnFailed, maxTurnsExceeded, filesystemError } from "./AgentRunner";
+import { AgentRunner, spawnFailed, maxTurnsExceeded, filesystemError, rateLimited } from "./AgentRunner";
 import type { AgentRunnerEchoScript, RunError } from "./AgentRunner";
 
 // ---------------------------------------------------------------------------
@@ -62,6 +62,10 @@ export const AgentRunnerEcho = (
 
           if (exit._tag === "maxTurns") {
             return yield* Effect.fail(maxTurnsExceeded(role));
+          }
+
+          if (exit._tag === "rateLimited") {
+            return yield* Effect.fail(rateLimited(role, exit.resetsAt));
           }
 
           if (exit._tag === "spawnFail") {

@@ -66,12 +66,16 @@ export const LoopRunnerLive: Layer.Layer<LoopRunner, never, never> = Layer.succe
           }
 
           const task = maybeTask.value;
+          // `attempt` is 1-indexed and refers to the upcoming run.
+          // We defer fc.incrementAttempt until after RunTask resolves so that a
+          // rate-limit halt leaves the attempt counter unchanged — the operator
+          // resumes with the same budget intact.
           const attempt = task.attempts + 1;
 
           // ----------------------------------------------------------------
-          // Update state: increment attempt + mark in_progress, then persist
+          // Mark in_progress and persist (attempt not yet incremented on disk)
           // ----------------------------------------------------------------
-          feature = fc.markStatus(fc.incrementAttempt(feature, task.id), task.id, "in_progress");
+          feature = fc.markStatus(feature, task.id, "in_progress");
           yield* fc.save(contractPath, feature);
 
           // ----------------------------------------------------------------
@@ -113,6 +117,24 @@ export const LoopRunnerLive: Layer.Layer<LoopRunner, never, never> = Layer.succe
             })
             .pipe(Effect.either);
 
+          // Rate-limit: halt the loop without consuming the retry budget.
+          // We do NOT increment the attempt counter and do NOT mark the task
+          // failed — status stays in_progress so the operator can resume once
+          // the rate limit clears. Persist current in-memory state to capture
+          // the in_progress status already written above.
+          if (outcome._tag === "Left" && outcome.left._tag === "RateLimited") {
+            yield* fc.save(contractPath, feature);
+            stoppedReason = {
+              _tag: "RateLimited",
+              role: outcome.left.role,
+              resetsAt: outcome.left.resetsAt,
+            };
+            break;
+          }
+
+          // Non-rate-limited outcomes consume the attempt budget.
+          feature = fc.incrementAttempt(feature, task.id);
+
           const isPass =
             outcome._tag === "Right" && outcome.right.verdict === "PASS";
           const isExhausted = attempt >= task.maxAttempts;
@@ -130,8 +152,8 @@ export const LoopRunnerLive: Layer.Layer<LoopRunner, never, never> = Layer.succe
               stoppedReason = { _tag: "TaskExhausted", failedTaskIds: [task.id] };
               break;
             }
-            // Attempt budget remains — feature already persisted as in_progress;
-            // continue loop without an extra save (no state change).
+            // Attempt budget remains — persist incremented attempt counter.
+            yield* fc.save(contractPath, feature);
           }
         }
 

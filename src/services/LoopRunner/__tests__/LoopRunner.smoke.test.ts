@@ -3,6 +3,7 @@ import { Effect, Layer } from "effect";
 import { FileSystem } from "@effect/platform";
 import { BunContext } from "@effect/platform-bun";
 import * as nodePath from "node:path";
+import * as os from "node:os";
 import { AgentRunnerEcho, type AgentRunnerEchoScript } from "../../AgentRunner";
 import { ContextEngineLive } from "../../ContextEngine";
 import { EvalParserLive } from "../../EvalParser";
@@ -49,11 +50,13 @@ const script: AgentRunnerEchoScript = {
 };
 
 // ---------------------------------------------------------------------------
-// Tmp root — placed under .tap/tmp/ per project convention
+// Tmp root — placed under os.tmpdir() so a stray `git commit` from the real
+// LoopRunnerLive pipeline cannot walk up to the project `.git/` and pollute
+// project history.
 // ---------------------------------------------------------------------------
 
 const tmpRoot = brand<"AbsolutePath">(
-  nodePath.resolve(process.cwd(), `.tap/tmp/looprunner-smoke-${crypto.randomUUID()}`),
+  nodePath.join(os.tmpdir(), `looprunner-smoke-${crypto.randomUUID()}`),
 );
 
 // ---------------------------------------------------------------------------

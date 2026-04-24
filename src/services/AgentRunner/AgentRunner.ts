@@ -8,6 +8,7 @@ import { FileSystem } from "@effect/platform";
 export type RunError =
   | Extract<RunTaskError, { _tag: "AgentSpawnFailed" }>
   | Extract<RunTaskError, { _tag: "AgentMaxTurnsExceeded" }>
+  | Extract<RunTaskError, { _tag: "RateLimited" }>
   | Extract<RunTaskError, { _tag: "FilesystemError" }>;
 
 // ---------------------------------------------------------------------------
@@ -39,6 +40,20 @@ export const filesystemError = (
   _tag: "FilesystemError",
   path,
   cause,
+});
+
+/**
+ * Constructs a RateLimited error. `resetsAt` is a Unix timestamp (seconds).
+ * Use `0` when no rate_limit_event was observed — the caller can distinguish
+ * "unknown reset time" (0) from an actual timestamp (> 0).
+ */
+export const rateLimited = (
+  role: AgentRole,
+  resetsAt: number,
+): Extract<RunTaskError, { _tag: "RateLimited" }> => ({
+  _tag: "RateLimited",
+  role,
+  resetsAt,
 });
 
 // ---------------------------------------------------------------------------
@@ -81,6 +96,7 @@ export type RoleScript = {
   readonly exit:
     | { readonly _tag: "ok" }
     | { readonly _tag: "maxTurns" }
+    | { readonly _tag: "rateLimited"; readonly resetsAt: number }
     | { readonly _tag: "spawnFail"; readonly exitCode: number; readonly stderr: string };
   readonly evalFileContent?: string;
 };

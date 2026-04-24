@@ -40,8 +40,12 @@ await Effect.runPromise(
     const runner = yield* LoopRunner;
     const summary = yield* runner.run(contractPath);
     const { stoppedReason: r, iterations, tasksDone, tasksFailed, tasksPending } = summary;
+    const rateLimitSuffix =
+      r._tag === "RateLimited"
+        ? ` RateLimited(${r.role}) — resets at ${r.resetsAt > 0 ? new Date(r.resetsAt * 1000).toISOString() : "unknown"}`
+        : "";
     console.log(
-      `[loop-runner] ${r._tag} — iterations=${iterations} done=${tasksDone.length} failed=${tasksFailed.length} pending=${tasksPending.length}`,
+      `[loop-runner] ${r._tag}${rateLimitSuffix} — iterations=${iterations} done=${tasksDone.length} failed=${tasksFailed.length} pending=${tasksPending.length}`,
     );
   }).pipe(
     Effect.catchAll((e) =>

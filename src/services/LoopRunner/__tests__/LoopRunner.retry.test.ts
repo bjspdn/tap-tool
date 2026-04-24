@@ -137,9 +137,13 @@ const makeFailResult = (taskId: string): TaskResult => ({
 // Tmp roots
 // ---------------------------------------------------------------------------
 
-/** Standard tmp root for most fixtures — sits inside the tap-tool git tree. */
+/**
+ * Standard tmp root for most fixtures — placed under os.tmpdir() so a stray
+ * commit from LoopRunnerLive's commitTask cannot walk up to the project
+ * `.git/` and pollute history.
+ */
 const tmpRoot = brand<"AbsolutePath">(
-  nodePath.resolve(process.cwd(), `.tap/tmp/looprunner-retry-${crypto.randomUUID()}`),
+  nodePath.join(os.tmpdir(), `looprunner-retry-${crypto.randomUUID()}`),
 );
 
 /**

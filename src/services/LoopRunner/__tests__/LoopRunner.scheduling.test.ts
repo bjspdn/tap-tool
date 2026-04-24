@@ -3,6 +3,7 @@ import { Effect, Layer } from "effect";
 import { FileSystem } from "@effect/platform";
 import { BunContext } from "@effect/platform-bun";
 import * as nodePath from "node:path";
+import * as os from "node:os";
 import { AgentRunner } from "../../AgentRunner";
 import { ContextEngine } from "../../ContextEngine";
 import { EvalParser } from "../../EvalParser";
@@ -131,11 +132,12 @@ const makeFailResult = (taskId: string): TaskResult => ({
 });
 
 // ---------------------------------------------------------------------------
-// Tmp root for this test run
+// Tmp root for this test run — placed under os.tmpdir() so a stray commit
+// from LoopRunnerLive's commitTask cannot walk up to the project `.git/`.
 // ---------------------------------------------------------------------------
 
 const tmpRoot = brand<"AbsolutePath">(
-  nodePath.resolve(process.cwd(), `.tap/tmp/looprunner-sched-${crypto.randomUUID()}`),
+  nodePath.join(os.tmpdir(), `looprunner-sched-${crypto.randomUUID()}`),
 );
 
 // ---------------------------------------------------------------------------

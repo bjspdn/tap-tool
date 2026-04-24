@@ -20,6 +20,7 @@ type TaskResult = {
 type RunTaskError =
   | { readonly _tag: "AgentSpawnFailed"; readonly role: AgentRole; readonly exitCode: number; readonly stderr: string }
   | { readonly _tag: "AgentMaxTurnsExceeded"; readonly role: AgentRole }
+  | { readonly _tag: "RateLimited"; readonly role: AgentRole; readonly resetsAt: number }
   | { readonly _tag: "EvalResultMissing"; readonly expectedPath: AbsolutePath }
   | { readonly _tag: "EvalParseFailed"; readonly reason: string; readonly rawContent: string }
   | { readonly _tag: "TemplateRenderFailed"; readonly template: string; readonly missingKey: string }

@@ -11,7 +11,8 @@ declare global {
     | { _tag: "AllDone" }
     | { _tag: "TaskExhausted"; failedTaskIds: ReadonlyArray<TaskId> }
     | { _tag: "MaxIterations"; cap: number }
-    | { _tag: "NoReadyTasks"; remaining: ReadonlyArray<TaskId> };
+    | { _tag: "NoReadyTasks"; remaining: ReadonlyArray<TaskId> }
+    | { _tag: "RateLimited"; role: AgentRole; resetsAt: number };
 
   interface LoopSummary {
     readonly feature: string;
