@@ -1,0 +1,453 @@
+{
+  "feature": "composer-reviewer",
+  "goal": "Deliver the Composer + Reviewer sub-agent vertical slice: identity files, per-role contract templates, supporting skills, and the Effect services (ContextEngine, AgentRunner, EvalParser) plus runTask orchestration, testable end-to-end with an echo-agent fake.",
+  "constraints": [
+    "Services are Effect Context.Tag + Layer pairs, swappable in tests.",
+    "All new types under src/types/*.d.ts, ambient (no exports), PascalCase filenames.",
+    "Tests under __test__/ folders adjacent to the code they exercise.",
+    "No `any`, no `as unknown as`. Errors are tagged unions via effect/Schema.",
+    "Subagent spawn command is fixed: claude -p --agent <Composer|Reviewer> --output-format stream-json --verbose --dangerously-skip-permissions. Model, tools, skills, maxTurns come from the agent frontmatter.",
+    "Never spawn with detached: true — prior incident left zombie claude processes. Use default process-group behavior; cancellation via SIGTERM to the direct child pid.",
+    "Subagent frontmatter lists skills explicitly. Do not rely on cwd auto-discovery — sub-agents running as main do not inherit skills.",
+    "Templating library: handlebars. Per-invocation render, no compile cache in v0.",
+    "Log tee paths: .tap/features/<slug>/logs/<task_id>/iter-NNN-<role>.jsonl (stdout) and .stderr.log (stderr). Eval output .tap/features/<slug>/eval/EVAL_RESULT.md is written by Reviewer itself, not by the harness.",
+    "This feature does not deliver a FeatureContract service, a LoopRunner scheduler, a CLI, or any VCS / auto-commit behavior. Caller (future LoopRunner) is responsible for contract I/O, scheduling, retries, and VCS policy."
+  ],
+  "stories": [
+    {
+      "id": "S1",
+      "title": "Foundation: dependency + shared type declarations",
+      "acceptance": [
+        "`bun install` succeeds with handlebars pinned in package.json.",
+        "`bunx tsc --noEmit` passes with all new/renamed ambient type files in place.",
+        "Task, Story, Feature, TaskResult, EvalIssue, RunTaskError, AgentEvent, and the four service-contract types are globally available without imports."
+      ],
+      "tasks": [
+        {
+          "id": "S1.T1",
+          "title": "Add handlebars dependency",
+          "files": ["package.json", "bun.lock"],
+          "acceptance": [
+            "`handlebars` appears in package.json dependencies.",
+            "`bun install` runs clean and updates bun.lock.",
+            "`import Handlebars from \"handlebars\"` resolves under tsc."
+          ],
+          "depends_on": [],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S1.T2",
+          "title": "Rename existing ambient type files to PascalCase",
+          "files": [
+            "src/types/AgentRunner.d.ts",
+            "src/types/LoopRunner.d.ts",
+            "src/services/LoopRunner.ts"
+          ],
+          "acceptance": [
+            "src/types/agent-runner.d.ts is removed and its content lives at src/types/AgentRunner.d.ts.",
+            "src/types/loop-runner.d.ts is removed and its content lives at src/types/LoopRunner.d.ts.",
+            "`bunx tsc --noEmit` passes after rename.",
+            "LoopRunner.d.ts wraps declarations in `declare global { ... }` so interfaces remain ambient globals under `moduleDetection: \"force\"` (the stray `import type { Effect }` otherwise makes the file a module).",
+            "Stale `AgentResult` interface is dropped; AgentRunner.d.ts is left as a placeholder populated by S1.T4.",
+            "Stale path-import in src/services/LoopRunner.ts is removed (ambient types resolve without module import)."
+          ],
+          "depends_on": [],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S1.T3",
+          "title": "Author Contract.d.ts (Task, Story, Feature) with branded ID + path types",
+          "files": ["src/types/Contract.d.ts"],
+          "acceptance": [
+            "Contract.d.ts declares ambient global types Task, Story, Feature matching DESIGN.md §2 shape (Task fields: id, title, files, acceptance, depends_on, status, attempts, maxAttempts; Story: id, title, acceptance, tasks; Feature: feature, goal, constraints, stories).",
+            "Status union is exactly `\"pending\" | \"in_progress\" | \"done\" | \"failed\"`.",
+            "Declares a generic `Brand<T, B>` helper and three concrete branded types — `TaskId`, `StoryId`, `AbsolutePath` — globally available to downstream type files.",
+            "Task.id is `TaskId`, Task.depends_on is `readonly TaskId[]`, Task.files is `readonly AbsolutePath[]`, Story.id is `StoryId`.",
+            "`bunx tsc --noEmit` passes."
+          ],
+          "depends_on": ["S1.T2"],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S1.T4",
+          "title": "Extend AgentRunner.d.ts with AgentEvent + run signature",
+          "files": ["src/types/AgentRunner.d.ts"],
+          "acceptance": [
+            "AgentEvent is a discriminated union with variants `system`, `assistant`, `user`, `result` carrying the fields listed in SPECS.md <feature:shape>.",
+            "ContentBlock union covers `text`, `tool_use`, `tool_result`.",
+            "An `AgentRunOptions` type declares { role: \"Composer\" | \"Reviewer\"; stdin: string; cwd: AbsolutePath; attempt: number; logPath: AbsolutePath; stderrLogPath: AbsolutePath; evalPath?: AbsolutePath } — path fields use the `AbsolutePath` brand from Contract.d.ts.",
+            "`bunx tsc --noEmit` passes."
+          ],
+          "depends_on": ["S1.T2", "S1.T3"],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S1.T5",
+          "title": "Author RunTask.d.ts (TaskResult, EvalIssue, RunTaskError)",
+          "files": ["src/types/RunTask.d.ts"],
+          "acceptance": [
+            "EvalIssue fields: acceptanceFailed, file (AbsolutePath), problem, suggestedFix.",
+            "TaskResult fields: taskId (TaskId), attempt, verdict, rationale, issues, composerLogPath (AbsolutePath), reviewerLogPath (AbsolutePath), evalResultPath (AbsolutePath), durationMs.",
+            "RunTaskError is a tagged union covering six variants: AgentSpawnFailed (carries role), AgentMaxTurnsExceeded (carries role), EvalResultMissing, EvalParseFailed, TemplateRenderFailed, FilesystemError. Amended from the original eight-variant shape to make role a data-level concern, enabling future roles without type-topology changes. Path fields in EvalResultMissing and FilesystemError use the `AbsolutePath` brand.",
+            "`bunx tsc --noEmit` passes."
+          ],
+          "depends_on": ["S1.T2", "S1.T3"],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S1.T6",
+          "title": "Author ContextEngine.d.ts and EvalParser.d.ts",
+          "files": [
+            "src/types/ContextEngine.d.ts",
+            "src/types/EvalParser.d.ts"
+          ],
+          "acceptance": [
+            "ContextEngine.d.ts declares two role-specific input types — ComposerRenderInput { task; feature; specsPath; contractPath; featureRoot; attempt; priorEval: Option.Option<AbsolutePath>; gitStatus } and ReviewerRenderInput { task; feature; specsPath; contractPath; featureRoot; attempt; evalPath: AbsolutePath } — plus TemplateRenderError { _tag: \"TemplateRenderFailed\"; template: string; missingKey: string }. No `null` or `undefined` in the surface; absence is modeled with `Option` from effect, per project CLAUDE.md rule.",
+            "File imports `type { Option } from \"effect\"` and wraps the declarations in `declare global { ... }` to keep ambient visibility (standard pattern — same as LoopRunner.d.ts).",
+            "EvalParser.d.ts declares EvalResult { verdict: \"PASS\" | \"FAIL\"; rationale: string; issues: ReadonlyArray<EvalIssue> } and EvalParseError = Extract<RunTaskError, { _tag: \"EvalParseFailed\" | \"EvalResultMissing\" }> (aligned with the RunTaskError tagged union via Extract, single source of truth in RunTask.d.ts).",
+            "`bunx tsc --noEmit` passes."
+          ],
+          "depends_on": ["S1.T3", "S1.T5"],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        }
+      ]
+    },
+    {
+      "id": "S2",
+      "title": "Static content: sub-agent identities, skills, prompt templates",
+      "acceptance": [
+        "Composer and Reviewer sub-agent files exist with the frontmatter + body agreed in the interview.",
+        "Three skill files exist with the bodies agreed in the interview.",
+        "Two prompt templates exist with handlebars placeholders matching the RenderInput shape.",
+        "A dry parse of each markdown file succeeds: YAML frontmatter is valid, handlebars compiles."
+      ],
+      "tasks": [
+        {
+          "id": "S2.T1",
+          "title": "Author .claude/agents/Composer.md",
+          "files": [".claude/agents/Composer.md"],
+          "acceptance": [
+            "Frontmatter has: name: Composer, description (single sentence), model: sonnet, skills: [tdd, anti-patterns], maxTurns: 50.",
+            "Body includes the rules listed in SPECS: no files outside task.files, no commits/pushes, must run bun test + bunx tsc --noEmit before exit, must read prior_eval_path on retry.",
+            "YAML frontmatter parses cleanly with a standard parser."
+          ],
+          "depends_on": [],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S2.T2",
+          "title": "Author .claude/agents/Reviewer.md",
+          "files": [".claude/agents/Reviewer.md"],
+          "acceptance": [
+            "Frontmatter has: name: Reviewer, description (single sentence), model: opus, skills: [anti-patterns, code-review], maxTurns: 50.",
+            "Body forbids editing source code or committing, requires independent re-run of bun test + bunx tsc --noEmit, and names EVAL_RESULT.md (at the supplied eval_path) as the only file Reviewer may write.",
+            "YAML frontmatter parses cleanly."
+          ],
+          "depends_on": [],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S2.T3",
+          "title": "Author .claude/skills/tdd/SKILL.md",
+          "files": [".claude/skills/tdd/SKILL.md"],
+          "acceptance": [
+            "Frontmatter has a `description` field that explicitly mentions the trigger condition (acceptance referring to a test file).",
+            "Body describes the red-green-refactor loop, one-assertion-per-test rule, behavior-named tests, small-fast-unit preference.",
+            "Content is code-agnostic (no Bun-, TypeScript-, or Effect-specific rules).",
+            "Skill is discoverable by the Claude Code harness (appears in the registered skills list)."
+          ],
+          "depends_on": [],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S2.T4",
+          "title": "Author .claude/skills/anti-patterns/SKILL.md",
+          "files": [".claude/skills/anti-patterns/SKILL.md"],
+          "acceptance": [
+            "Frontmatter description explains the trigger (writing or reviewing code before finalizing).",
+            "Body enumerates at minimum: monolithic files (>~300 lines), 3+ duplication rule, no impurity in pure zones, deep-nesting smell, magic values, vague names, commented-out code, implicit contracts.",
+            "Content is code-agnostic.",
+            "Skill is discoverable by the Claude Code harness."
+          ],
+          "depends_on": [],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S2.T5",
+          "title": "Author .claude/skills/code-review/SKILL.md",
+          "files": [".claude/skills/code-review/SKILL.md"],
+          "acceptance": [
+            "Frontmatter description identifies the trigger: acting as Reviewer in the tap-tool Ralph loop.",
+            "Body covers: per-criterion classification (Satisfied / Not satisfied / Partial), zero-trust verification steps, scope-check (nothing touched outside task.files), verdict rules (PASS only when every criterion satisfied + tests green + no anti-pattern violations).",
+            "Body references the <eval:verdict> schema but defers full emission details to REVIEWER_CONTRACT.md.",
+            "Skill is discoverable by the Claude Code harness."
+          ],
+          "depends_on": [],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S2.T6",
+          "title": "Author .tap/prompts/COMPOSER_CONTRACT.md",
+          "files": [".tap/prompts/COMPOSER_CONTRACT.md"],
+          "acceptance": [
+            "Template contains handlebars placeholders for: feature_goal, feature_constraints, task_id, task_title, task_files, task_acceptance, specs_path, contract_path, prior_eval_path, git_status.",
+            "Template ends with an explicit kickoff directive (`## Begin now.` or equivalent).",
+            "Template uses triple-brace `{{{ }}}` for every placeholder that may carry user-authored text with `{{` in it (feature_goal, feature_constraints items, task_title, task_files items, task_acceptance items, git_status); double-brace is reserved for controlled IDs/paths (task_id, specs_path, contract_path).",
+            "`prior_eval_path` is wrapped in an `{{#if prior_eval_path}}…{{/if}}` conditional so the block is omitted on attempt 1.",
+            "Handlebars.compile on the file succeeds."
+          ],
+          "depends_on": [],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S2.T7",
+          "title": "Author .tap/prompts/REVIEWER_CONTRACT.md",
+          "files": [".tap/prompts/REVIEWER_CONTRACT.md"],
+          "acceptance": [
+            "Template contains handlebars placeholders for: task_id, task_title, task_files, task_acceptance, specs_path, contract_path, eval_path.",
+            "Template explicitly instructs writing EVAL_RESULT.md at {{eval_path}} via the Write tool, with the verdict/rationale/issues block format shown inline.",
+            "Triple-brace `{{{ }}}` applied to user-text placeholders (task_title, task_files items, task_acceptance items); double-brace for controlled IDs/paths.",
+            "Template ends with an explicit kickoff directive.",
+            "Handlebars.compile on the file succeeds."
+          ],
+          "depends_on": [],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        }
+      ]
+    },
+    {
+      "id": "S3",
+      "title": "ContextEngine service",
+      "acceptance": [
+        "ContextEngine is an Effect Tag with a Live layer that renders both role contracts from the two prompt templates using handlebars.",
+        "Missing placeholder values raise a tagged TemplateRenderFailed error rather than silently leaving a blank."
+      ],
+      "tasks": [
+        {
+          "id": "S3.T1",
+          "title": "Implement ContextEngine.ts",
+          "files": ["src/services/ContextEngine.ts"],
+          "acceptance": [
+            "Exports an Effect Tag `ContextEngine` with methods `renderComposer(input: ComposerRenderInput): Effect<string, TemplateRenderError>` and `renderReviewer(input: ReviewerRenderInput): Effect<string, TemplateRenderError>`.",
+            "Exposes a pure factory `makeContextEngine(composerSrc: string, reviewerSrc: string): ContextEngine[\"Type\"]` so tests can inject custom template sources without touching disk.",
+            "`ContextEngineLive` layer reads the two templates from `.tap/prompts/COMPOSER_CONTRACT.md` + `REVIEWER_CONTRACT.md` via `@effect/platform` FileSystem and delegates to `makeContextEngine`.",
+            "Renders with handlebars `strict: true`; when Handlebars throws for an undefined placeholder, the error is translated into a `TemplateRenderError` with `missingKey` extracted from the throw message (pattern: `\"<name>\" not defined`).",
+            "Internal translators `toComposerContext` / `toReviewerContext` flatten camelCase RenderInput into the snake_case handlebars context (feature_goal, feature_constraints, task_id, task_title, task_files, task_acceptance, specs_path, contract_path, prior_eval_path, git_status, eval_path) — with `Option.getOrElse(priorEval, () => \"\")` for absence so no null/undefined leaks into the template context.",
+            "`bunx tsc --noEmit` passes."
+          ],
+          "depends_on": ["S1.T1", "S1.T3", "S1.T6", "S2.T6", "S2.T7"],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S3.T2",
+          "title": "Tests for ContextEngine",
+          "files": ["src/services/__tests__/ContextEngine.test.ts"],
+          "acceptance": [
+            "Test file lives at `src/services/__tests__/ContextEngine.test.ts` (plural `__tests__/` per CLAUDE.md; amends the earlier singular path in this contract).",
+            "Fixture Task + Feature rendered via the PRODUCTION `.tap/prompts/COMPOSER_CONTRACT.md` source asserts substring presence of every user-provided value verbatim (feature goal, each constraint, task id/title, each file, each acceptance criterion, specs path, contract path, git status).",
+            "Missing-placeholder case uses `makeContextEngine` with a custom template string that references an undefined key (e.g. `{{ mystery_field }}`); the Effect fails with `{ _tag: \"TemplateRenderFailed\", template: \"COMPOSER_CONTRACT.md\", missingKey: \"mystery_field\" }`.",
+            "User-text-contains-`{{`-braces case sets `task.title` and a `task.acceptance` entry to strings containing literal `{{ ... }}` fragments; the rendered output contains those fragments verbatim (triple-brace in the template prevents re-interpretation).",
+            "Reviewer render smoke asserts the `evalPath` appears verbatim and the inline `<eval:verdict>` schema fragment is present in the rendered output.",
+            "No `any`, no `as unknown as`; brand-construction uses a single narrow `brand<B>(s)` helper with one `as` cast.",
+            "`bun test src/services/__tests__/ContextEngine.test.ts` passes; the full `bun test` suite also passes."
+          ],
+          "depends_on": ["S3.T1"],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        }
+      ]
+    },
+    {
+      "id": "S4",
+      "title": "EvalParser service",
+      "acceptance": [
+        "EvalParser reads the contents of an EVAL_RESULT.md file and returns a structured EvalResult or a tagged EvalParseFailed.",
+        "Parser tolerates surrounding prose outside the three XML-tagged blocks but requires all three to be present."
+      ],
+      "tasks": [
+        {
+          "id": "S4.T1",
+          "title": "Implement EvalParser.ts",
+          "files": ["src/services/EvalParser.ts"],
+          "acceptance": [
+            "Exports an Effect Tag `EvalParser` with method `parse(rawContent: string): Effect<EvalResult, EvalParseFailed>` — error channel narrowed from the d.ts-declared `EvalParseError` umbrella because `EvalResultMissing` belongs to the caller's file-read step (RunTask), not to pure parsing of already-read content.",
+            "Exposes a pure `parseEvalContent(rawContent)` function (used by `EvalParserLive` via `Layer.succeed`) so tests share one implementation with the service layer.",
+            "Extracts <eval:verdict>, <eval:rationale>, <eval:issues> blocks via regex (non-greedy body match); parses the issues YAML with the `yaml` npm lib (v2.8.3) into EvalIssue[]; maps snake_case YAML keys (`acceptance_failed`, `suggested_fix`) to the camelCase EvalIssue shape; brands `file` as `AbsolutePath` at the parse boundary.",
+            "Tolerates surrounding prose outside the three XML blocks; requires all three tags present or raises `EvalParseFailed` with the raw content preserved.",
+            "Accepts empty <eval:issues> when verdict is PASS; requires at least one issue when verdict is FAIL (PASS-or-has-issues invariant).",
+            "`bunx tsc --noEmit` passes."
+          ],
+          "depends_on": ["S1.T5", "S1.T6"],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S4.T2",
+          "title": "Tests for EvalParser",
+          "files": ["src/services/__tests__/EvalParser.test.ts"],
+          "acceptance": [
+            "Test file lives at `src/services/__tests__/EvalParser.test.ts` (plural `__tests__/` per CLAUDE.md; amends the earlier singular path in this contract, matching the S3.T2 precedent).",
+            "Fixture: PASS with empty issues → parses to { verdict: 'PASS', issues: [] }.",
+            "Fixture: FAIL with two issues → parses to the two-issue array with correct field mapping, including snake_case → camelCase (`acceptance_failed` → `acceptanceFailed`, `suggested_fix` → `suggestedFix`).",
+            "Fixture: missing verdict tag → raises EvalParseFailed with a helpful `reason` mentioning 'verdict' and rawContent preserved verbatim.",
+            "Fixture: malformed YAML in <eval:issues> (unterminated string) → raises EvalParseFailed with the raw content preserved.",
+            "Fixture: FAIL with empty issues → raises EvalParseFailed with reason mentioning 'FAIL' (violates the PASS-or-has-issues invariant).",
+            "No `any`, no `as unknown as`; brand-construction uses a single narrow `brand<B>(s)` helper with one `as` cast, matching the ContextEngine.test.ts convention.",
+            "`bun test src/services/__tests__/EvalParser.test.ts` passes; full `bun test` suite also passes (9 tests)."
+          ],
+          "depends_on": ["S4.T1"],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        }
+      ]
+    },
+    {
+      "id": "S5",
+      "title": "AgentRunner service",
+      "acceptance": [
+        "AgentRunnerLive spawns `claude -p --agent <role> --output-format stream-json --verbose --dangerously-skip-permissions`, pipes stdin, tees stdout to the jsonl log and stderr to the stderr log, and yields a `Stream<AgentEvent>` alongside the final `result` event.",
+        "AgentRunnerEcho layer is a deterministic fake for tests, driven by an in-memory script and capable of writing a canned EVAL_RESULT.md when the Reviewer role is invoked.",
+        "Neither layer uses `detached: true`."
+      ],
+      "tasks": [
+        {
+          "id": "S5.T1",
+          "title": "Implement AgentRunnerLive",
+          "files": ["src/services/AgentRunner.ts"],
+          "acceptance": [
+            "Uses `@effect/platform` Command + CommandExecutor from `@effect/platform-bun` to spawn the fixed command with stdin fed from AgentRunOptions.stdin.",
+            "Parses stdout line-by-line as NDJSON, decodes each line into AgentEvent via `effect/Schema` (exposed as the exported `AgentEventSchema`; per-line decode via exported `decodeAgentEventLine(line)`); tees raw lines to AgentRunOptions.logPath.",
+            "Tees stderr to AgentRunOptions.stderrLogPath.",
+            "Never passes `detached: true`. On Effect interruption, sends SIGTERM to the child process via the Command API.",
+            "Exposes `AgentRunner` Tag with method `run(opts: AgentRunOptions): Effect<{ events: ReadonlyArray<AgentEvent>; result: Extract<AgentEvent, { type: 'result' }> }, AgentSpawnFailed | AgentMaxTurnsExceeded | FilesystemError, FileSystem.FileSystem>` — the service's R channel carries `FileSystem.FileSystem` as an upper bound so both `AgentRunnerLive` (which closes over FS at construction) and `AgentRunnerEcho` (which acquires FS inside `run`) satisfy the same interface without residual Layer requirements under `Layer.merge`.",
+            "Maps `result.subtype === 'error_max_turns'` to AgentMaxTurnsExceeded carrying `role` as data; non-zero exit → AgentSpawnFailed with role + captured stderr; FileSystem errors during log tee → FilesystemError with branded path.",
+            "`bunx tsc --noEmit` passes."
+          ],
+          "depends_on": ["S1.T4", "S1.T5"],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S5.T2",
+          "title": "Implement AgentRunnerEcho fake layer",
+          "files": ["src/services/AgentRunner.ts"],
+          "acceptance": [
+            "Exports `AgentRunnerEcho(script)` returning `Layer<AgentRunner, never, never>` (FileSystem acquired inside `run` rather than at Layer construction, so `Layer.merge(AgentRunnerEcho(script), BunContext.layer)` composes with no residual requirements — see S5.T1 note on the service-interface R channel).",
+            "Script shape: `AgentRunnerEchoScript` is `Readonly<Record<AgentRole, RoleScript>>` where `RoleScript` (separately exported) has `{ events: ReadonlyArray<AgentEvent>; exit: ok | maxTurns | spawnFail; evalFileContent?: string }`. `evalFileContent` is structurally optional on all roles; the Echo layer writes it only when role === 'Reviewer' AND the field is present — no semantic change.",
+            "When invoked with role='Reviewer' and `evalFileContent` is present, writes that string to AgentRunOptions.evalPath via FileSystem before emitting the scripted result.",
+            "Tees scripted events as JSONL to AgentRunOptions.logPath (same format the Live layer writes) so tests can verify log files exist on disk with the expected content.",
+            "Respects the scripted exit and returns the matching role-specific tagged error when not `ok`.",
+            "Does not spawn any real process.",
+            "`bunx tsc --noEmit` passes."
+          ],
+          "depends_on": ["S5.T1"],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S5.T3",
+          "title": "Tests for AgentRunner (Echo + schema roundtrip)",
+          "files": ["src/services/__tests__/AgentRunner.test.ts"],
+          "acceptance": [
+            "Test file lives at `src/services/__tests__/AgentRunner.test.ts` (plural `__tests__/` per CLAUDE.md; amends the earlier singular path in this contract, matching the S3.T2 / S4.T2 precedent).",
+            "Roundtrip test: a canned NDJSON fixture containing one event per AgentEvent variant (system; assistant with text + tool_use + tool_result content blocks; user; result with subtype='success') decodes via `decodeAgentEventLine` without loss of known fields; a second assertion decodes the parsed object directly via `Schema.decodeUnknown(AgentEventSchema)` and yields the same result.",
+            "Echo test: scripted Composer `ok` then scripted Reviewer with `evalFileContent` — both `run` calls yield `{ events, result }` with `result.subtype === 'success'`; the Composer jsonl log, Reviewer jsonl log, and EVAL_RESULT.md all exist on disk with the expected content.",
+            "Echo test for `maxTurns` exit: one test per role — Composer maxTurns yields `{ _tag: 'AgentMaxTurnsExceeded', role: 'Composer' }`; Reviewer maxTurns yields `{ _tag: 'AgentMaxTurnsExceeded', role: 'Reviewer' }`.",
+            "FileSystem provided via `BunContext.layer` from `@effect/platform-bun`; tmp dirs under `.tap/tmp/agentrunner-test-<uuid>/` with `afterEach`/`afterAll` cleanup.",
+            "No `any`, no `as unknown as`; brand-construction uses a single narrow `brand<B>(s)` helper with one `as` cast, matching ContextEngine.test.ts / EvalParser.test.ts.",
+            "AgentRunnerLive is NOT exercised in this test file — manual/integration only, explicitly excluded.",
+            "`bun test src/services/__tests__/AgentRunner.test.ts` passes (5 tests); full `bun test` suite also passes (14 tests, 96 expect calls)."
+          ],
+          "depends_on": ["S5.T1", "S5.T2"],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        }
+      ]
+    },
+    {
+      "id": "S6",
+      "title": "RunTask orchestration (the vertical slice)",
+      "acceptance": [
+        "`runTask(task, feature, paths)` returns a TaskResult on PASS and a tagged RunTaskError on any failure in the pipeline.",
+        "The full PASS → TaskResult path is demonstrated by an integration test using AgentRunnerEcho + real ContextEngine + real EvalParser.",
+        "The four failure paths (Composer max turns, Composer spawn fail, Reviewer eval missing, Reviewer eval parse fail) each surface the correct tagged error."
+      ],
+      "tasks": [
+        {
+          "id": "S6.T1",
+          "title": "Implement runTask orchestration",
+          "files": ["src/services/RunTask.ts"],
+          "acceptance": [
+            "Effect signature: `runTask(task: Task, feature: Feature, paths: RunTaskPaths): Effect<TaskResult, RunTaskError, AgentRunner | ContextEngine | EvalParser | FileSystem>` where `RunTaskPaths = { featureRoot: AbsolutePath; specsPath: AbsolutePath; contractPath: AbsolutePath; attempt: number }`. Paths refined from raw `string` to `AbsolutePath` for consistency with `TaskResult`'s branded outputs and with `ComposerRenderInput` / `ReviewerRenderInput` shapes (retroactive amendment).",
+            "Steps in order: compute log paths + eval path from `paths` and `attempt` (iter-NNN zero-padded); `Clock.currentTimeMillis` for start; ensure `<featureRoot>/logs/<task.id>` and `<featureRoot>/eval` directories exist via `fs.makeDirectory({ recursive: true })` (errors → `FilesystemError`); render Composer contract (`priorEval: Option.none()` and `gitStatus: \"\"` for v0 — both marked TODO for LoopRunner-owned retry state); invoke AgentRunner for Composer; render Reviewer contract with `evalPath` filled; invoke AgentRunner for Reviewer; check eval path exists via `fs.exists` → raise `EvalResultMissing` if absent; read raw content → parse with EvalParser; Clock end; assemble TaskResult with branded paths + `durationMs`.",
+            "Every service error already lives in the RunTaskError tagged union through the service signatures — no raw Effect errors leak out; the two FS boundary errors (`makeDirectory` + `readFileString` + `exists`) are mapped to `FilesystemError` with branded `path`.",
+            "Reuses the exported `filesystemError` constructor from `./AgentRunner` (added to the barrel `index.ts` re-exports alongside existing Tag + layers).",
+            "No `any`, no `as unknown as`; a single narrow `brand<B>(s)` helper is the only type cast at the path-branding boundary (one `as`, six branded outputs).",
+            "`bunx tsc --noEmit` passes."
+          ],
+          "depends_on": [
+            "S1.T3", "S1.T4", "S1.T5", "S1.T6",
+            "S3.T1", "S4.T1", "S5.T1", "S5.T2"
+          ],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S6.T2",
+          "title": "Integration test for runTask",
+          "files": ["src/services/__tests__/RunTask.test.ts"],
+          "acceptance": [
+            "Test file lives at `src/services/__tests__/RunTask.test.ts` (plural `__tests__/` per CLAUDE.md; amends the earlier singular path in this contract, matching the S3.T2 / S4.T2 / S5.T3 precedent).",
+            "PASS fixture: Composer scripted `ok` + Reviewer scripted with a canned PASS EVAL_RESULT.md yields a TaskResult with `verdict='PASS'`, `issues=[]`, all three log/eval paths existing on disk (verified via `fs.exists`), `durationMs >= 0`, `taskId === task.id`, `attempt === paths.attempt`.",
+            "FAIL fixture: Reviewer scripted with a canned FAIL EVAL_RESULT.md (two issues) yields a TaskResult with `verdict='FAIL'` and the two EvalIssues correctly mapped (snake_case → camelCase, `file` branded as `AbsolutePath`).",
+            "Composer max-turns fixture yields `{ _tag: 'AgentMaxTurnsExceeded', role: 'Composer' }` (post-refactor shape — amends the contract's earlier `ComposerMaxTurnsExceeded` naming); the Reviewer log path does NOT exist on disk, proving the pipeline short-circuited before Reviewer.",
+            "Reviewer returns `ok` but no EVAL_RESULT.md on disk → yields `EvalResultMissing` with `expectedPath` equal to `<featureRoot>/eval/EVAL_RESULT.md`.",
+            "Reviewer writes malformed EVAL_RESULT.md (unterminated YAML string inside `<eval:issues>`) → yields `EvalParseFailed` with `rawContent` populated verbatim.",
+            "Layer composition: `Layer.provideMerge(ContextEngineLive, BunContext.layer).pipe(Layer.merge(EvalParserLive), Layer.merge(AgentRunnerEcho(script)), Layer.provideMerge(BunContext.layer))` — real ContextEngineLive + real EvalParserLive + AgentRunnerEcho fake + BunContext for FileSystem.",
+            "No `any`, no `as unknown as`; brand-construction uses a single narrow `brand<B>(s)` helper with one `as` cast.",
+            "`bun test src/services/__tests__/RunTask.test.ts` passes (5 tests); full `bun test` suite also passes (19 tests across 4 files, 126 expect() calls)."
+          ],
+          "depends_on": ["S6.T1", "S4.T2", "S3.T2"],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        }
+      ]
+    }
+  ]
+}
