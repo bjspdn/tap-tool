@@ -1,6 +1,8 @@
 import { Effect, Layer, Option } from "effect";
+import { FileSystem } from "@effect/platform";
 import * as nodePath from "node:path";
 import { brand } from "../brand";
+import { filesystemError } from "../AgentRunner";
 import { FeatureContract } from "../FeatureContract";
 import { RunTask } from "../RunTask";
 import { captureGitStatus } from "./gitStatus";
@@ -80,23 +82,35 @@ export const LoopRunnerLive: Layer.Layer<LoopRunner, never, never> = Layer.succe
 
           // ----------------------------------------------------------------
           // Prior-eval archiving (attempt > 1 = retry)
+          //
+          // Guard: if a previous run died between markStatus/save and the
+          // Composer/Reviewer cycle, EVAL_RESULT.md may not exist even though
+          // attempts > 0. Skip the archive in that case and treat this run as
+          // a fresh start (priorEvalPath = none).
           // ----------------------------------------------------------------
-          let priorEvalPath: Option.Option<AbsolutePath>;
-          if (attempt > 1) {
-            const iter = String(attempt - 1).padStart(3, "0");
-            const archivePath = brand<"AbsolutePath">(
-              nodePath.join(
-                evalDir as string,
-                "archive",
-                task.id,
-                `iter-${iter}-EVAL_RESULT.md`,
-              ),
-            );
-            yield* archivePriorEval(evalResultPath, archivePath);
-            priorEvalPath = Option.some(archivePath);
-          } else {
-            priorEvalPath = Option.none();
-          }
+          const fs = yield* FileSystem.FileSystem;
+          const priorEvalPath: Option.Option<AbsolutePath> =
+            attempt > 1
+              ? yield* fs
+                  .exists(evalResultPath as string)
+                  .pipe(
+                    Effect.mapError((cause) => filesystemError(evalResultPath, cause)),
+                    Effect.flatMap((exists) => {
+                      if (!exists) return Effect.succeed(Option.none<AbsolutePath>());
+                      const archivePath = brand<"AbsolutePath">(
+                        nodePath.join(
+                          evalDir as string,
+                          "archive",
+                          task.id,
+                          `iter-${String(attempt - 1).padStart(3, "0")}-EVAL_RESULT.md`,
+                        ),
+                      );
+                      return archivePriorEval(evalResultPath, archivePath).pipe(
+                        Effect.map(() => Option.some(archivePath)),
+                      );
+                    }),
+                  )
+              : Option.none();
 
           // ----------------------------------------------------------------
           // Capture git status (non-fatal — returns "" on failure)
@@ -145,7 +159,27 @@ export const LoopRunnerLive: Layer.Layer<LoopRunner, never, never> = Layer.succe
             yield* fc.save(contractPath, feature);
             yield* commitTask(featureRoot, task, contractPath);
           } else {
-            // FAIL (or RunTask error) → retry or halt
+            // FAIL (or RunTask error) → log what went wrong, then retry or halt
+            if (outcome._tag === "Left") {
+              const safe = JSON.parse(
+                JSON.stringify(outcome.left, (k, v) => {
+                  if (k === "cause") return String(v).slice(0, 200);
+                  return v;
+                }),
+              );
+              yield* Effect.sync(() =>
+                console.error(
+                  `[loop-runner] iter ${iterations} task ${task.id} attempt ${attempt}/${task.maxAttempts} failed: _tag=${outcome.left._tag} ${JSON.stringify(safe)}`,
+                ),
+              );
+            } else if (outcome.right.verdict === "FAIL") {
+              yield* Effect.sync(() =>
+                console.error(
+                  `[loop-runner] iter ${iterations} task ${task.id} attempt ${attempt}/${task.maxAttempts} verdict=FAIL\n  rationale: ${outcome.right.rationale}\n  issues: ${outcome.right.issues.length}`,
+                ),
+              );
+            }
+
             if (isExhausted) {
               feature = fc.markStatus(feature, task.id, "failed");
               yield* fc.save(contractPath, feature);

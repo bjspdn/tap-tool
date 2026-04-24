@@ -372,7 +372,45 @@ describe("LoopRunner retry-state", () => {
   });
 
   // -------------------------------------------------------------------------
-  // Fixture 5: Exhaustion halt prints resume-hint with task id, "To resume:",
+  // Fixture 5: attempt > 1 but no EVAL_RESULT.md on disk (crashed mid-run)
+  //
+  // Simulates a task whose previous run died after incrementAttempt+save but
+  // before the Composer/Reviewer cycle wrote EVAL_RESULT.md. The loop must
+  // not throw FilesystemError — it should skip archiving and pass
+  // priorEvalPath = none() to RunTask.
+  // -------------------------------------------------------------------------
+
+  test("attempt > 1 with no EVAL_RESULT.md: skips archive, passes priorEvalPath=none, completes", async () => {
+    const contractPath = brand<"AbsolutePath">(
+      `${tmpRoot}/missing-eval/FEATURE_CONTRACT.json`,
+    );
+
+    // Task is already in_progress with 1 attempt recorded (mid-run crash state).
+    // No eval/EVAL_RESULT.md is written.
+    const feature = makeFeature([makeTask("T1", [], "in_progress", 1, 3)]);
+    await Effect.runPromise(saveContract(contractPath, feature));
+    // Intentionally do NOT seed eval dir or EVAL_RESULT.md.
+
+    const fake = makeRunTaskFake([makePassResult("T1")]);
+
+    // Must not throw; FilesystemError would propagate as rejection.
+    const summary = await Effect.runPromise(runLoop(contractPath, fake));
+
+    // Loop completed successfully.
+    expect(summary.completed).toBe(true);
+    expect(summary.stoppedReason._tag).toBe("AllDone");
+    expect(summary.tasksDone).toContain(brand<"TaskId">("T1"));
+
+    // RunTask was called exactly once.
+    expect(fake.calls).toHaveLength(1);
+
+    // priorEvalPath was none because there was no file to archive.
+    const call = fake.calls[0]!;
+    expect(Option.isNone(call.paths.priorEvalPath)).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
+  // Fixture 6: Exhaustion halt prints resume-hint with task id, "To resume:",
   //             "status", and "attempts"
   // -------------------------------------------------------------------------
 
