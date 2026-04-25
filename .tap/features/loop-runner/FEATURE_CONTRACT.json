@@ -25,9 +25,9 @@
       "id": "S1",
       "title": "Ambient type additions",
       "acceptance": [
-        "LoopSummary stoppedReason is a 4-variant tagged union available as an ambient global.",
-        "FeatureContractError tagged union is available as an ambient global.",
-        "bunx tsc --noEmit passes after S1.T1 and S1.T2."
+        { "behavioral": "LoopSummary stoppedReason is a 4-variant tagged union type available as an ambient global in TypeScript", "mechanism": null },
+        { "behavioral": "FeatureContractError tagged union type is available as an ambient global in TypeScript", "mechanism": null },
+        { "behavioral": "bunx tsc --noEmit exits 0 after S1.T1 and S1.T2 changes are applied", "mechanism": null }
       ],
       "tasks": [
         {
@@ -37,11 +37,11 @@
             "src/types/LoopRunner.d.ts"
           ],
           "acceptance": [
-            "LoopSummary interface has the fields: feature: string; iterations: number; completed: boolean; stoppedReason: <4-variant union>; tasksDone: ReadonlyArray<TaskId>; tasksFailed: ReadonlyArray<TaskId>; tasksPending: ReadonlyArray<TaskId>.",
-            "stoppedReason is exactly the union: { _tag: 'AllDone' } | { _tag: 'TaskExhausted'; failedTaskIds: ReadonlyArray<TaskId> } | { _tag: 'MaxIterations'; cap: number } | { _tag: 'NoReadyTasks'; remaining: ReadonlyArray<TaskId> }.",
-            "LoopOptions interface is left as-is (unused stub, fine to leave).",
-            "File stays wrapped in `declare global { ... }` because it imports `type { Effect } from \"effect\"` — this preserves ambient visibility under moduleDetection: force.",
-            "bunx tsc --noEmit passes."
+            { "behavioral": "LoopSummary interface has the fields feature: string, iterations: number, completed: boolean, stoppedReason: <4-variant union>, tasksDone: ReadonlyArray<TaskId>, tasksFailed: ReadonlyArray<TaskId>, tasksPending: ReadonlyArray<TaskId>", "mechanism": null },
+            { "behavioral": "stoppedReason is exactly the union: { _tag: 'AllDone' } | { _tag: 'TaskExhausted'; failedTaskIds: ReadonlyArray<TaskId> } | { _tag: 'MaxIterations'; cap: number } | { _tag: 'NoReadyTasks'; remaining: ReadonlyArray<TaskId> }", "mechanism": "{ _tag: 'AllDone' } | { _tag: 'TaskExhausted'; failedTaskIds: ReadonlyArray<TaskId> } | { _tag: 'MaxIterations'; cap: number } | { _tag: 'NoReadyTasks'; remaining: ReadonlyArray<TaskId> }" },
+            { "behavioral": "LoopOptions interface remains in the file unchanged", "mechanism": null },
+            { "behavioral": "LoopRunner.d.ts file is wrapped in `declare global { ... }` because it imports `type { Effect } from \"effect\"`, preserving ambient visibility under moduleDetection: force", "mechanism": "declare global { ... }, import type { Effect } from \"effect\"" },
+            { "behavioral": "bunx tsc --noEmit exits 0", "mechanism": null }
           ],
           "depends_on": [],
           "status": "done",
@@ -55,10 +55,10 @@
             "src/types/FeatureContract.d.ts"
           ],
           "acceptance": [
-            "File declares ambient global type FeatureContractError as a 5-variant tagged union: ContractReadFailed { path: AbsolutePath; cause: unknown }, ContractInvalidJson { path: AbsolutePath; cause: unknown }, ContractSchemaFailed { path: AbsolutePath; issues: string }, ContractCycleDetected { path: AbsolutePath; cycle: ReadonlyArray<TaskId> }, ContractWriteFailed { path: AbsolutePath; cause: unknown }.",
-            "All path fields use the ambient AbsolutePath brand from Contract.d.ts.",
-            "File has no imports and no exports — pure ambient declarations (AbsolutePath and TaskId are already ambient globals from Contract.d.ts).",
-            "bunx tsc --noEmit passes."
+            { "behavioral": "src/types/FeatureContract.d.ts declares ambient global type FeatureContractError as a 5-variant tagged union: ContractReadFailed { path: AbsolutePath; cause: unknown }, ContractInvalidJson { path: AbsolutePath; cause: unknown }, ContractSchemaFailed { path: AbsolutePath; issues: string }, ContractCycleDetected { path: AbsolutePath; cycle: ReadonlyArray<TaskId> }, ContractWriteFailed { path: AbsolutePath; cause: unknown }", "mechanism": "ContractReadFailed, ContractInvalidJson, ContractSchemaFailed, ContractCycleDetected, ContractWriteFailed" },
+            { "behavioral": "all path fields in FeatureContractError variants use the ambient AbsolutePath brand from Contract.d.ts", "mechanism": "AbsolutePath brand" },
+            { "behavioral": "FeatureContract.d.ts has no imports and no exports — pure ambient declarations", "mechanism": null },
+            { "behavioral": "bunx tsc --noEmit exits 0", "mechanism": null }
           ],
           "depends_on": [],
           "status": "done",
@@ -71,9 +71,9 @@
       "id": "S2",
       "title": "RunTask Tag refactor + RunTaskPaths extension",
       "acceptance": [
-        "runTask is callable both as a plain exported function (backwards compat for scripts/bootstrap.ts until S7) and via a RunTask Context.Tag that LoopRunner can depend on.",
-        "RunTaskPaths carries priorEvalPath: Option<AbsolutePath> and gitStatus: string; runTask threads both into the Composer render input, replacing the L129/L130 TODOs.",
-        "scripts/bootstrap.ts still runs cleanly against the composer-reviewer contract (all tasks done → exits immediately)."
+        { "behavioral": "runTask is callable both as a plain exported function for backwards compatibility with scripts/bootstrap.ts and via a RunTask Context.Tag that LoopRunner can depend on", "mechanism": "RunTask Context.Tag" },
+        { "behavioral": "RunTaskPaths carries priorEvalPath: Option<AbsolutePath> and gitStatus: string; runTask threads both into the Composer render input replacing the L129/L130 TODO placeholders", "mechanism": "RunTaskPaths, priorEvalPath: Option<AbsolutePath>, gitStatus: string" },
+        { "behavioral": "bun run scripts/bootstrap.ts with the composer-reviewer contract (all tasks done) exits 0 immediately", "mechanism": null }
       ],
       "tasks": [
         {
@@ -85,13 +85,13 @@
             "scripts/bootstrap.ts"
           ],
           "acceptance": [
-            "src/services/RunTask.ts exports a Context.Tag subclass `class RunTask extends Context.Tag(\"RunTask\")<RunTask, { run: (task, feature, paths) => Effect<TaskResult, RunTaskError, AgentRunner | ContextEngine | EvalParser | FileSystem.FileSystem> }>() {}`.",
-            "Exports `RunTaskLive: Layer.Layer<RunTask, never, never>` constructed via Layer.succeed(RunTask, RunTask.of({ run: runTask })). The plain runTask function is retained as an export so scripts/bootstrap.ts can still call it directly during the rest of S3–S6 before S7 switches it to the Tag.",
-            "RunTaskPaths gains two fields: `readonly priorEvalPath: Option.Option<AbsolutePath>` and `readonly gitStatus: string`. Both are required fields (not optional with `?`) — absence is modeled with Option.none() and \"\", not undefined.",
-            "runTask body uses paths.priorEvalPath in place of `Option.none()` at the renderComposer call site, and paths.gitStatus in place of `\"\"`. The two TODO comments at RunTask.ts L128/L129 are removed.",
-            "src/services/__tests__/RunTask.test.ts updated: every paths object in fixtures has priorEvalPath: Option.none() and gitStatus: \"\". The existing 5 tests still pass. At least one test additionally provides RunTaskLive via Layer.provide and invokes the Tag-based run (i.e. `yield* RunTask; yield* rt.run(...)`) to prove the Tag wiring works end-to-end with the existing AgentRunnerEcho + real ContextEngine + real EvalParser stack.",
-            "scripts/bootstrap.ts updated at the RunTask call site to pass `priorEvalPath: Option.none()` and `gitStatus: \"\"` in paths. The five-item JSDoc limitations block at the top of bootstrap.ts is left intact for S7 to delete.",
-            "bun test src/services/__tests__/RunTask.test.ts passes. Full `bun test` suite passes. bunx tsc --noEmit passes."
+            { "behavioral": "src/services/RunTask.ts exports a Context.Tag subclass `class RunTask extends Context.Tag('RunTask')<RunTask, { run: (task, feature, paths) => Effect<TaskResult, RunTaskError, AgentRunner | ContextEngine | EvalParser | FileSystem.FileSystem> }>() {}`", "mechanism": "class RunTask extends Context.Tag(\"RunTask\")<RunTask, { run: (task, feature, paths) => Effect<TaskResult, RunTaskError, AgentRunner | ContextEngine | EvalParser | FileSystem.FileSystem> }>()" },
+            { "behavioral": "src/services/RunTask.ts exports RunTaskLive: Layer.Layer<RunTask, never, never> constructed via Layer.succeed(RunTask, RunTask.of({ run: runTask })); the plain runTask function is retained as an export", "mechanism": "RunTaskLive, Layer.succeed(RunTask, RunTask.of({ run: runTask }))" },
+            { "behavioral": "RunTaskPaths gains two required fields: priorEvalPath: Option.Option<AbsolutePath> and gitStatus: string, modeled with Option.none() and empty string for absence", "mechanism": "priorEvalPath: Option.Option<AbsolutePath>, gitStatus: string" },
+            { "behavioral": "runTask body uses paths.priorEvalPath at the renderComposer call site and paths.gitStatus in place of the empty string; the two TODO comments at RunTask.ts L128/L129 are removed", "mechanism": "paths.priorEvalPath, paths.gitStatus" },
+            { "behavioral": "src/services/__tests__/RunTask.test.ts is updated so every paths fixture has priorEvalPath: Option.none() and gitStatus: '' and at least one test invokes the Tag-based run via RunTaskLive Layer.provide to prove Tag wiring works", "mechanism": "RunTaskLive, Layer.provide, yield* RunTask" },
+            { "behavioral": "scripts/bootstrap.ts is updated to pass priorEvalPath: Option.none() and gitStatus: '' in the paths argument at the RunTask call site", "mechanism": "priorEvalPath: Option.none(), gitStatus: ''" },
+            { "behavioral": "bun test src/services/__tests__/RunTask.test.ts exits 0 with all 5 tests passing; full bun test suite exits 0; bunx tsc --noEmit exits 0", "mechanism": null }
           ],
           "depends_on": [],
           "status": "done",
@@ -104,8 +104,8 @@
       "id": "S3",
       "title": "gitStatus helper",
       "acceptance": [
-        "A narrow Effect function captureGitStatus(cwd) returns the stdout of `git status --short` as a string, or \"\" on non-zero exit.",
-        "Unit test passes: happy-path captures output, non-repo path yields \"\"."
+        { "behavioral": "captureGitStatus(cwd) returns the stdout of `git status --short` as a string, or empty string on non-zero exit", "mechanism": "captureGitStatus, git status --short" },
+        { "behavioral": "bun test src/services/LoopRunner/__tests__/gitStatus.test.ts exits 0: happy-path test captures output, non-repo path test yields empty string", "mechanism": null }
       ],
       "tasks": [
         {
@@ -116,12 +116,12 @@
             "src/services/LoopRunner/__tests__/gitStatus.test.ts"
           ],
           "acceptance": [
-            "src/services/LoopRunner/gitStatus.ts exports `captureGitStatus(cwd: AbsolutePath): Effect.Effect<string, never, CommandExecutor.CommandExecutor>`.",
-            "Implementation uses `CommandExecutor.string(Command.make(\"git\", \"status\", \"--short\").pipe(Command.workingDirectory(cwd as string)))` and `Effect.catchAll(() => Effect.succeed(\"\"))` to swallow non-zero exits and spawn errors into empty string.",
-            "Not a Context.Tag — plain Effect-returning function.",
-            "Test file at src/services/LoopRunner/__tests__/gitStatus.test.ts with two tests: (1) `captureGitStatus(repoRoot)` on this repo's own root (use `process.cwd()`) yields a string (may be empty if working tree is clean, but the call succeeds without error); (2) `captureGitStatus(tmpDirOutsideRepo)` yields exactly `\"\"`. The non-repo fixture MUST be created OUTSIDE the tap-tool git tree — use `path.join(os.tmpdir(), 'gitstatus-test-' + crypto.randomUUID())` via Node's `os` and `path` modules — because `.tap/tmp/` sits inside the repo and `git status --short` would return the repo's actual status from there, breaking the premise of the non-repo test. Create the directory with `fs.makeDirectory({ recursive: true })` and clean it up in `afterAll` via `fs.remove({ recursive: true })`. Use BunContext.layer to provide CommandExecutor + FileSystem.",
-            "Import the existing `brand` helper from `src/services/brand.ts` (relative path from the test file: `../../brand`). Do NOT redefine `brand<B>` locally — the feature's constraint 10 mandates a single `as` cast at the boundary, and src/services/brand.ts is that boundary. The test uses `brand<\"AbsolutePath\">(someString)` to construct branded cwd paths.",
-            "No any, no as unknown as anywhere in the test file. bun test src/services/LoopRunner/__tests__/gitStatus.test.ts passes. bunx tsc --noEmit passes."
+            { "behavioral": "src/services/LoopRunner/gitStatus.ts exports captureGitStatus(cwd: AbsolutePath): Effect.Effect<string, never, CommandExecutor.CommandExecutor>", "mechanism": "captureGitStatus(cwd: AbsolutePath): Effect.Effect<string, never, CommandExecutor.CommandExecutor>" },
+            { "behavioral": "captureGitStatus implementation uses CommandExecutor.string(Command.make('git', 'status', '--short').pipe(Command.workingDirectory(cwd as string))) and Effect.catchAll(() => Effect.succeed('')) to swallow non-zero exits and spawn errors", "mechanism": "CommandExecutor.string(Command.make(\"git\", \"status\", \"--short\").pipe(Command.workingDirectory(cwd as string))), Effect.catchAll(() => Effect.succeed(\"\"))" },
+            { "behavioral": "captureGitStatus is a plain Effect-returning function, not a Context.Tag", "mechanism": null },
+            { "behavioral": "test file at src/services/LoopRunner/__tests__/gitStatus.test.ts contains two tests: (1) captureGitStatus on the repo root (process.cwd()) yields a string without error; (2) captureGitStatus on a tmp dir created outside the tap-tool git tree via path.join(os.tmpdir(), 'gitstatus-test-' + crypto.randomUUID()) yields exactly ''", "mechanism": "path.join(os.tmpdir(), 'gitstatus-test-' + crypto.randomUUID()), BunContext.layer" },
+            { "behavioral": "the test file imports the brand helper from ../../brand (relative to the test file) and does not redefine it locally", "mechanism": "import { brand } from \"../../brand\"" },
+            { "behavioral": "the test file contains no any or as unknown as; bun test src/services/LoopRunner/__tests__/gitStatus.test.ts exits 0; bunx tsc --noEmit exits 0", "mechanism": null }
           ],
           "depends_on": [],
           "status": "done",
@@ -134,8 +134,8 @@
       "id": "S4",
       "title": "Archive helper",
       "acceptance": [
-        "A narrow Effect function archivePriorEval(evalPath, archivePath) copies EVAL_RESULT.md to eval/archive/<taskId>/iter-NNN-EVAL_RESULT.md and creates parent dirs.",
-        "Unit tests pass: copy creates file with expected content; missing source → tagged FilesystemError."
+        { "behavioral": "archivePriorEval(evalPath, archivePath) copies the source file to the destination path and creates parent dirs", "mechanism": "archivePriorEval" },
+        { "behavioral": "bun test src/services/LoopRunner/__tests__/archive.test.ts exits 0: copy test creates file with expected content; missing source test yields tagged FilesystemError", "mechanism": "FilesystemError" }
       ],
       "tasks": [
         {
@@ -146,11 +146,11 @@
             "src/services/LoopRunner/__tests__/archive.test.ts"
           ],
           "acceptance": [
-            "src/services/LoopRunner/archive.ts exports `archivePriorEval(sourcePath: AbsolutePath, destPath: AbsolutePath): Effect.Effect<void, Extract<RunTaskError, { _tag: \"FilesystemError\" }>, FileSystem.FileSystem>`.",
-            "Implementation: yield fs.makeDirectory on the parent of destPath with recursive: true, yield fs.readFileString(sourcePath), yield fs.writeFileString(destPath, content). Any FS error maps to `filesystemError(pathOfTheFailedStep, cause)` reusing the existing constructor re-exported from src/services/AgentRunner.",
-            "No side effect if sourcePath does not exist → returns FilesystemError with the source path.",
-            "Test file at src/services/LoopRunner/__tests__/archive.test.ts with three tests: (1) archive a file containing known content into a nested archive path; assert fs.exists(destPath) and fs.readFileString(destPath) === source content; (2) missing source file yields `{ _tag: \"FilesystemError\", path: <sourcePath> }`; (3) a second archive to the same destPath overwrites cleanly (idempotency of writeFileString). Use BunContext.layer and `.tap/tmp/archive-test-<uuid>/` tmp dirs with afterAll cleanup.",
-            "No any, no as unknown as; brand<B>(s) helper used for path branding. bun test passes. bunx tsc --noEmit passes."
+            { "behavioral": "src/services/LoopRunner/archive.ts exports archivePriorEval(sourcePath: AbsolutePath, destPath: AbsolutePath): Effect.Effect<void, Extract<RunTaskError, { _tag: 'FilesystemError' }>, FileSystem.FileSystem>", "mechanism": "archivePriorEval(sourcePath: AbsolutePath, destPath: AbsolutePath): Effect.Effect<void, Extract<RunTaskError, { _tag: \"FilesystemError\" }>, FileSystem.FileSystem>" },
+            { "behavioral": "archivePriorEval implementation calls fs.makeDirectory on the parent of destPath with recursive: true, then fs.readFileString(sourcePath), then fs.writeFileString(destPath, content); any FS error maps to filesystemError(pathOfTheFailedStep, cause) reusing the constructor re-exported from src/services/AgentRunner", "mechanism": "fs.makeDirectory({ recursive: true }), fs.readFileString, fs.writeFileString, filesystemError from src/services/AgentRunner" },
+            { "behavioral": "if sourcePath does not exist archivePriorEval returns FilesystemError with the source path", "mechanism": "FilesystemError with source path" },
+            { "behavioral": "test file at src/services/LoopRunner/__tests__/archive.test.ts contains three tests: (1) archive a file with known content to a nested path and assert fs.exists(destPath) and content matches; (2) missing source file yields { _tag: 'FilesystemError', path: <sourcePath> }; (3) a second archive to the same destPath overwrites cleanly using BunContext.layer and .tap/tmp/archive-test-<uuid>/ with afterAll cleanup", "mechanism": "BunContext.layer, .tap/tmp/archive-test-<uuid>/" },
+            { "behavioral": "the test file contains no any or as unknown as; brand<B>(s) helper used for path branding; bun test exits 0; bunx tsc --noEmit exits 0", "mechanism": "brand<B>(s)" }
           ],
           "depends_on": [],
           "status": "done",
@@ -163,9 +163,9 @@
       "id": "S5",
       "title": "FeatureContract service",
       "acceptance": [
-        "A Schema defines the Feature/Story/Task shape and decodes the existing .tap/features/composer-reviewer/FEATURE_CONTRACT.json without loss.",
-        "FeatureContract Tag + Live layer expose load/save/nextReady/markStatus/incrementAttempt with dep-cycle detection at load time.",
-        "Unit tests cover valid load, invalid JSON, schema-fail, cycle, save-roundtrip, nextReady filtering (including skip of `failed` status), and pure helpers."
+        { "behavioral": "a Schema definition in src/services/FeatureContract.ts decodes .tap/features/composer-reviewer/FEATURE_CONTRACT.json from disk without loss", "mechanism": "FeatureSchema" },
+        { "behavioral": "FeatureContract Context.Tag and FeatureContractLive Layer expose load, save, nextReady, markStatus, incrementAttempt with dep-cycle detection at load time", "mechanism": "FeatureContract Context.Tag, FeatureContractLive Layer" },
+        { "behavioral": "bun test src/services/__tests__/FeatureContract.test.ts exits 0 covering: valid load, invalid JSON, schema-fail, cycle, save-roundtrip, nextReady filtering (including skip of failed status), and pure helpers", "mechanism": null }
       ],
       "tasks": [
         {
@@ -175,15 +175,15 @@
             "src/services/FeatureContract.ts"
           ],
           "acceptance": [
-            "File imports { Schema } from \"effect\" and declares TaskIdSchema, StoryIdSchema, AbsolutePathSchema as `Schema.String.pipe(Schema.filter((_s): _s is TaskId => true))` (and the analogous predicates for StoryId and AbsolutePath). IMPORTANT: do NOT use `Schema.brand(\"TaskId\")` — it attaches an effect/Brand symbol-based brand whose `Schema.Type` is `string & Brand.Brand<\"TaskId\">` and does NOT structurally match the ambient `Brand<T, B> = T & { readonly __brand: B }` declared in src/types/Contract.d.ts, which would break the _FeatureTypeMatches assertion below. The identity-predicate `Schema.filter` is a runtime no-op (always returns true) that exists solely to refine the Schema.Type to the ambient brand — this is intentional, not a workaround.",
-            "A comment above the three branded-id schemas explains this in one or two sentences: `// Schema.filter with an identity `is` predicate refines Schema.Type to the ambient Brand<T,B> shape in Contract.d.ts. Schema.brand is intentionally NOT used — it produces a different (effect/Brand symbol-based) brand that does not structurally match the ambient __brand property.` Do not include any text claiming Schema.brand is composed first.",
-            "TaskStatusSchema = Schema.Literal(\"pending\", \"in_progress\", \"done\", \"failed\") — exactly the four-variant union from Contract.d.ts.",
-            "TaskSchema = Schema.Struct({ id: TaskIdSchema, title: Schema.String, files: Schema.Array(AbsolutePathSchema), acceptance: Schema.Array(Schema.String), depends_on: Schema.Array(TaskIdSchema), status: TaskStatusSchema, attempts: Schema.Number, maxAttempts: Schema.Number }).",
-            "StorySchema = Schema.Struct({ id: StoryIdSchema, title: Schema.String, acceptance: Schema.Array(Schema.String), tasks: Schema.Array(TaskSchema) }).",
-            "FeatureSchema = Schema.Struct({ feature: Schema.String, goal: Schema.String, constraints: Schema.Array(Schema.String), stories: Schema.Array(StorySchema) }).",
-            "All five schemas exported from src/services/FeatureContract.ts. No Tag, no Live layer, no load/save body yet — just the Schema declarations.",
-            "At the end of the file, include one Effect.runSync-free sanity check as a top-level type-only assertion: `type _FeatureTypeMatches = Feature extends Schema.Schema.Type<typeof FeatureSchema> ? true : false; const _check: _FeatureTypeMatches = true;` — this fails type-check if the Schema and the ambient Feature type diverge. The whole point of using Schema.filter instead of Schema.brand is so this assertion compiles.",
-            "bunx tsc --noEmit passes."
+            { "behavioral": "src/services/FeatureContract.ts imports { Schema } from 'effect' and declares TaskIdSchema, StoryIdSchema, AbsolutePathSchema using Schema.String.pipe(Schema.filter((_s): _s is TaskId => true)) (and the analogous predicates for StoryId and AbsolutePath)", "mechanism": "Schema.String.pipe(Schema.filter((_s): _s is TaskId => true))" },
+            { "behavioral": "a comment above the three branded-id schemas explains that Schema.filter with an identity predicate refines Schema.Type to the ambient Brand<T,B> shape and that Schema.brand is intentionally NOT used because it produces a different (effect/Brand symbol-based) brand", "mechanism": "Schema.filter, Schema.brand" },
+            { "behavioral": "TaskStatusSchema is Schema.Literal('pending', 'in_progress', 'done', 'failed')", "mechanism": "Schema.Literal(\"pending\", \"in_progress\", \"done\", \"failed\")" },
+            { "behavioral": "TaskSchema is Schema.Struct({ id: TaskIdSchema, title: Schema.String, files: Schema.Array(AbsolutePathSchema), acceptance: Schema.Array(Schema.String), depends_on: Schema.Array(TaskIdSchema), status: TaskStatusSchema, attempts: Schema.Number, maxAttempts: Schema.Number })", "mechanism": "Schema.Struct({ id: TaskIdSchema, title: Schema.String, files: Schema.Array(AbsolutePathSchema), acceptance: Schema.Array(Schema.String), depends_on: Schema.Array(TaskIdSchema), status: TaskStatusSchema, attempts: Schema.Number, maxAttempts: Schema.Number })" },
+            { "behavioral": "StorySchema is Schema.Struct({ id: StoryIdSchema, title: Schema.String, acceptance: Schema.Array(Schema.String), tasks: Schema.Array(TaskSchema) })", "mechanism": "Schema.Struct({ id: StoryIdSchema, title: Schema.String, acceptance: Schema.Array(Schema.String), tasks: Schema.Array(TaskSchema) })" },
+            { "behavioral": "FeatureSchema is Schema.Struct({ feature: Schema.String, goal: Schema.String, constraints: Schema.Array(Schema.String), stories: Schema.Array(StorySchema) })", "mechanism": "Schema.Struct({ feature: Schema.String, goal: Schema.String, constraints: Schema.Array(Schema.String), stories: Schema.Array(StorySchema) })" },
+            { "behavioral": "all five schemas are exported from src/services/FeatureContract.ts", "mechanism": null },
+            { "behavioral": "the file contains a top-level type-only assertion `type _FeatureTypeMatches = Feature extends Schema.Schema.Type<typeof FeatureSchema> ? true : false; const _check: _FeatureTypeMatches = true;` that fails type-check if Schema and ambient Feature type diverge", "mechanism": "type _FeatureTypeMatches = Feature extends Schema.Schema.Type<typeof FeatureSchema> ? true : false; const _check: _FeatureTypeMatches = true" },
+            { "behavioral": "bunx tsc --noEmit exits 0", "mechanism": null }
           ],
           "depends_on": [
             "S1.T2"
@@ -199,14 +199,14 @@
             "src/services/FeatureContract.ts"
           ],
           "acceptance": [
-            "Same file as S5.T1 — add to it, do not split. Exports `class FeatureContract extends Context.Tag(\"FeatureContract\")<FeatureContract, { load: (path: AbsolutePath) => Effect.Effect<Feature, FeatureContractError>; save: (path: AbsolutePath, feature: Feature) => Effect.Effect<void, FeatureContractError>; nextReady: (feature: Feature) => Option.Option<Task>; markStatus: (feature: Feature, taskId: TaskId, status: TaskStatus) => Feature; incrementAttempt: (feature: Feature, taskId: TaskId) => Feature }>() {}`.",
-            "Exports `FeatureContractLive: Layer.Layer<FeatureContract, never, FileSystem.FileSystem>` built via Layer.effect(FeatureContract, Effect.gen(function*(){ const fs = yield* FileSystem.FileSystem; return FeatureContract.of({ load, save, nextReady, markStatus, incrementAttempt }); })).",
-            "load: fs.readFileString → JSON.parse wrapped in Effect.try (mapping to ContractInvalidJson) → Schema.decodeUnknown(FeatureSchema) (mapping ParseError to ContractSchemaFailed with formatted issues string) → findCycle check (mapping to ContractCycleDetected). Any fs.readFileString error maps to ContractReadFailed.",
-            "save: JSON.stringify(feature, null, 2) + \"\\n\" → fs.writeFileString (any error → ContractWriteFailed). No atomic write (per constraints).",
-            "nextReady: pure function matching the existing bootstrap.ts findReadyTask logic exactly — first task in flattened stories-then-tasks order with (status === \"pending\" || status === \"in_progress\") && attempts < maxAttempts && depends_on.every(dep => doneIds.has(dep)). `failed` tasks are NOT schedulable and do not contribute to doneIds.",
-            "markStatus + incrementAttempt: pure immutable updates matching the updateTask pattern from bootstrap.ts (map stories → map tasks → patch matching id).",
-            "findCycle: DFS over the depends_on graph; on cycle, returns ReadonlyArray<TaskId> naming the cycle. Exported (or at least module-private but tested via load).",
-            "No any, no as unknown as. bunx tsc --noEmit passes."
+            { "behavioral": "src/services/FeatureContract.ts exports `class FeatureContract extends Context.Tag('FeatureContract')<FeatureContract, { load: (path: AbsolutePath) => Effect.Effect<Feature, FeatureContractError>; save: (path: AbsolutePath, feature: Feature) => Effect.Effect<void, FeatureContractError>; nextReady: (feature: Feature) => Option.Option<Task>; markStatus: (feature: Feature, taskId: TaskId, status: TaskStatus) => Feature; incrementAttempt: (feature: Feature, taskId: TaskId) => Feature }>() {}`", "mechanism": "class FeatureContract extends Context.Tag(\"FeatureContract\")" },
+            { "behavioral": "src/services/FeatureContract.ts exports FeatureContractLive: Layer.Layer<FeatureContract, never, FileSystem.FileSystem> built via Layer.effect(FeatureContract, Effect.gen(...))", "mechanism": "FeatureContractLive: Layer.Layer<FeatureContract, never, FileSystem.FileSystem>, Layer.effect" },
+            { "behavioral": "load reads the file via fs.readFileString (errors → ContractReadFailed), parses JSON via Effect.try (errors → ContractInvalidJson), decodes via Schema.decodeUnknown(FeatureSchema) (errors → ContractSchemaFailed with formatted issues string), and runs findCycle (errors → ContractCycleDetected)", "mechanism": "fs.readFileString, Effect.try, Schema.decodeUnknown(FeatureSchema), findCycle, ContractReadFailed, ContractInvalidJson, ContractSchemaFailed, ContractCycleDetected" },
+            { "behavioral": "save calls JSON.stringify(feature, null, 2) + '\\n' then fs.writeFileString; any error maps to ContractWriteFailed", "mechanism": "JSON.stringify(feature, null, 2), fs.writeFileString, ContractWriteFailed" },
+            { "behavioral": "nextReady is a pure function that returns the first task where (status === 'pending' || status === 'in_progress') && attempts < maxAttempts && depends_on.every(dep => doneIds.has(dep)); failed tasks are NOT schedulable and do not contribute to doneIds", "mechanism": null },
+            { "behavioral": "markStatus and incrementAttempt are pure immutable updates that return a new Feature with the matched task patched and no other fields changed", "mechanism": null },
+            { "behavioral": "findCycle performs DFS over the depends_on graph and on cycle returns ReadonlyArray<TaskId> naming the cycle", "mechanism": null },
+            { "behavioral": "the file contains no any or as unknown as; bunx tsc --noEmit exits 0", "mechanism": null }
           ],
           "depends_on": [
             "S5.T1"
@@ -222,16 +222,16 @@
             "src/services/__tests__/FeatureContract.test.ts"
           ],
           "acceptance": [
-            "Test file lives at src/services/__tests__/FeatureContract.test.ts (plural __tests__/).",
-            "Fixture: load the production .tap/features/composer-reviewer/FEATURE_CONTRACT.json from disk; assert the result matches its expected story count (6) and total task count (19) with correct branded ids.",
-            "Fixture: invalid JSON file (\"{not json\") → ContractInvalidJson with path present.",
-            "Fixture: well-formed JSON missing the `stories` field → ContractSchemaFailed with non-empty issues string.",
-            "Fixture: contract with a cycle (A depends_on B, B depends_on A) → ContractCycleDetected with cycle array containing both task ids.",
-            "Fixture: save a Feature to a tmp path, load it back, assert equality with the original (roundtrip preserves all fields and branded ids).",
-            "nextReady tests (pure, no Layer needed): (1) fresh contract with no done tasks yields first pending task whose depends_on is empty; (2) with one done task, yields first whose depends_on is satisfied; (3) a `failed` task does NOT count as done and its dependents remain blocked; (4) a pending task with attempts === maxAttempts is skipped; (5) no-ready-tasks case returns Option.none().",
-            "markStatus + incrementAttempt tests: each produces a new Feature object (referential inequality) with the correct mutation and no other fields changed.",
-            "All tmp paths under `.tap/tmp/featurecontract-test-<uuid>/` with afterAll cleanup. BunContext.layer provides FileSystem.",
-            "No any, no as unknown as; brand<B>(s) helper used for path/id branding. bun test src/services/__tests__/FeatureContract.test.ts passes. Full bun test suite passes. bunx tsc --noEmit passes."
+            { "behavioral": "a test file exists at src/services/__tests__/FeatureContract.test.ts", "mechanism": null },
+            { "behavioral": "a test loads .tap/features/composer-reviewer/FEATURE_CONTRACT.json from disk and asserts the result matches its expected story count (6) and total task count (19) with correct branded ids", "mechanism": ".tap/features/composer-reviewer/FEATURE_CONTRACT.json" },
+            { "behavioral": "a test with invalid JSON input ('{not json') fails with ContractInvalidJson containing the path", "mechanism": "ContractInvalidJson" },
+            { "behavioral": "a test with well-formed JSON missing the stories field fails with ContractSchemaFailed with a non-empty issues string", "mechanism": "ContractSchemaFailed" },
+            { "behavioral": "a test with a contract containing a cycle (A depends_on B, B depends_on A) fails with ContractCycleDetected with a cycle array containing both task ids", "mechanism": "ContractCycleDetected" },
+            { "behavioral": "a test saves a Feature to a tmp path, loads it back, and asserts equality with the original preserving all fields and branded ids", "mechanism": null },
+            { "behavioral": "nextReady tests (pure, no Layer needed): (1) fresh contract yields first pending task with empty depends_on; (2) with one done task yields first whose depends_on is satisfied; (3) a failed task does NOT count as done and its dependents remain blocked; (4) a pending task with attempts === maxAttempts is skipped; (5) no-ready-tasks case returns Option.none()", "mechanism": "Option.none()" },
+            { "behavioral": "markStatus and incrementAttempt tests each produce a new Feature object (referential inequality) with the correct mutation and no other fields changed", "mechanism": null },
+            { "behavioral": "all tmp paths go under .tap/tmp/featurecontract-test-<uuid>/ with afterAll cleanup using BunContext.layer for FileSystem", "mechanism": "BunContext.layer, .tap/tmp/featurecontract-test-<uuid>/" },
+            { "behavioral": "the test file contains no any or as unknown as; brand<B>(s) helper used for path/id branding; bun test src/services/__tests__/FeatureContract.test.ts exits 0; full bun test suite exits 0; bunx tsc --noEmit exits 0", "mechanism": "brand<B>(s)" }
           ],
           "depends_on": [
             "S5.T2"
@@ -246,10 +246,10 @@
       "id": "S6",
       "title": "LoopRunner service",
       "acceptance": [
-        "LoopRunner.run(contractPath) drives the per-task attempt loop end-to-end: nextReady → archive prior eval → capture gitStatus → RunTask.run → verdict → save contract → loop.",
-        "Scheduling tests cover dep-blocking, AllDone exit, NoReadyTasks exit, and MaxIterations safety cap.",
-        "Retry-state tests cover priorEvalPath archiving + threading, gitStatus capture, FAIL→PASS recovery, FAIL×N→halt with TaskExhausted, and markStatus/incrementAttempt side effects on the saved contract.",
-        "One smoke test composes real RunTaskLive + real ContextEngineLive + real EvalParserLive + AgentRunnerEcho + FeatureContractLive + LoopRunnerLive and drives a 2-task contract to completion."
+        { "behavioral": "LoopRunner.run(contractPath) drives the per-task attempt loop: nextReady → archive prior eval → capture gitStatus → RunTask.run → verdict → save contract → loop", "mechanism": "LoopRunner.run, RunTask.run" },
+        { "behavioral": "bun test src/services/LoopRunner/__tests__/LoopRunner.scheduling.test.ts exits 0 covering dep-blocking, AllDone exit, NoReadyTasks exit, and MaxIterations safety cap", "mechanism": null },
+        { "behavioral": "bun test src/services/LoopRunner/__tests__/LoopRunner.retry.test.ts exits 0 covering priorEvalPath archiving and threading, gitStatus capture, FAIL→PASS recovery, FAIL×N→halt with TaskExhausted, and markStatus/incrementAttempt side effects on the saved contract", "mechanism": null },
+        { "behavioral": "bun test src/services/LoopRunner/__tests__/LoopRunner.smoke.test.ts exits 0 composing real RunTaskLive, ContextEngineLive, EvalParserLive, AgentRunnerEcho, FeatureContractLive, and LoopRunnerLive and driving a 2-task contract to completion", "mechanism": "RunTaskLive, ContextEngineLive, EvalParserLive, AgentRunnerEcho, FeatureContractLive, LoopRunnerLive" }
       ],
       "tasks": [
         {
@@ -261,14 +261,14 @@
             "src/services/LoopRunner/index.ts"
           ],
           "acceptance": [
-            "src/services/LoopRunner/LoopRunner.ts exports `class LoopRunner extends Context.Tag(\"LoopRunner\")<LoopRunner, { run: (contractPath: AbsolutePath) => Effect.Effect<LoopSummary, FeatureContractError | RunTaskError, FeatureContract | RunTask | CommandExecutor.CommandExecutor | FileSystem.FileSystem> }>() {}`. Also exports the MAX_ITERATIONS constant (= 100) for test visibility.",
-            "src/services/LoopRunner/LoopRunnerLive.ts exports `LoopRunnerLive: Layer.Layer<LoopRunner, never, never>` via Layer.succeed (FileSystem + CommandExecutor + FeatureContract + RunTask are acquired inside run via yield* — same pattern as AgentRunnerEcho — so LoopRunnerLive composes with BunContext.layer + other Live layers without residual R).",
-            "The run method implementation follows the pipeline in SPECS.md <feature:shape>: load contract; loop up to MAX_ITERATIONS — for each iteration: fc.nextReady(feature) (Option.none → break with AllDone if all done, NoReadyTasks with `remaining` TaskIds otherwise); compute attempt = task.attempts + 1; feature = fc.markStatus(fc.incrementAttempt(feature, task.id), task.id, \"in_progress\"); fc.save(contractPath, feature); priorEvalPath = (attempt > 1) ? some(yield archivePriorEval(evalResultPath, archive/<task.id>/iter-{attempt-1:03}-EVAL_RESULT.md)) : none; gitStatus = yield captureGitStatus(featureRoot); outcome = yield rt.run(task, feature, paths).pipe(Effect.either); on Right(PASS) → markStatus done + save + continue; on Right(FAIL) or Left(error) → if attempt < task.maxAttempts save + continue, else markStatus failed + save + break with TaskExhausted.",
-            "paths passed to RunTask.run are constructed exactly: { featureRoot: dirname(contractPath) branded, specsPath: join(featureRoot, \"SPECS.md\") branded, contractPath, attempt, priorEvalPath, gitStatus }.",
-            "On break, emit LoopSummary: feature = feature.feature; iterations = loop counter; completed = stoppedReason._tag === \"AllDone\"; stoppedReason as per branch; tasksDone/tasksFailed/tasksPending computed by partitioning the flattened task list by status.",
-            "At the end of run, if tasksFailed is non-empty, console.log a resume-hint block matching the format in SPECS.md. Done by writing to stdout via Effect.sync(() => console.log(...)).",
-            "src/services/LoopRunner/index.ts barrel re-exports LoopRunner, LoopRunnerLive, MAX_ITERATIONS, and the two helpers captureGitStatus + archivePriorEval (so tests and bootstrap.ts import from one path).",
-            "No any, no as unknown as. bunx tsc --noEmit passes."
+            { "behavioral": "src/services/LoopRunner/LoopRunner.ts exports `class LoopRunner extends Context.Tag('LoopRunner')<LoopRunner, { run: (contractPath: AbsolutePath) => Effect.Effect<LoopSummary, FeatureContractError | RunTaskError, FeatureContract | RunTask | CommandExecutor.CommandExecutor | FileSystem.FileSystem> }>() {}` and also exports the MAX_ITERATIONS constant (= 100)", "mechanism": "class LoopRunner extends Context.Tag(\"LoopRunner\"), MAX_ITERATIONS = 100" },
+            { "behavioral": "src/services/LoopRunner/LoopRunnerLive.ts exports LoopRunnerLive: Layer.Layer<LoopRunner, never, never> via Layer.succeed with FileSystem, CommandExecutor, FeatureContract, and RunTask acquired inside run via yield*", "mechanism": "LoopRunnerLive: Layer.Layer<LoopRunner, never, never>, Layer.succeed" },
+            { "behavioral": "the run method follows the pipeline: load contract; loop up to MAX_ITERATIONS — nextReady (Option.none → break); compute attempt = task.attempts + 1; markStatus/incrementAttempt to in_progress; fc.save; archive prior eval if attempt > 1; captureGitStatus; rt.run wrapped in Effect.either; on Right(PASS) → markStatus done + save + continue; on Right(FAIL) or Left(error) → if attempt < maxAttempts save + continue, else markStatus failed + save + break with TaskExhausted", "mechanism": "Effect.either, fc.nextReady, fc.markStatus, fc.incrementAttempt, fc.save, archivePriorEval, captureGitStatus, rt.run" },
+            { "behavioral": "paths passed to RunTask.run are constructed as { featureRoot: dirname(contractPath) branded, specsPath: join(featureRoot, 'SPECS.md') branded, contractPath, attempt, priorEvalPath, gitStatus }", "mechanism": null },
+            { "behavioral": "LoopSummary is emitted on break with feature, iterations, completed (stoppedReason._tag === 'AllDone'), stoppedReason, and tasksDone/tasksFailed/tasksPending partitioned from the flattened task list by status", "mechanism": null },
+            { "behavioral": "when tasksFailed is non-empty, a resume-hint block is printed to stdout via Effect.sync(() => console.log(...)) matching the format in SPECS.md", "mechanism": "Effect.sync(() => console.log(...))" },
+            { "behavioral": "src/services/LoopRunner/index.ts barrel re-exports LoopRunner, LoopRunnerLive, MAX_ITERATIONS, captureGitStatus, and archivePriorEval", "mechanism": null },
+            { "behavioral": "the files contain no any or as unknown as; bunx tsc --noEmit exits 0", "mechanism": null }
           ],
           "depends_on": [
             "S1.T1",
@@ -288,14 +288,14 @@
             "src/services/LoopRunner/__tests__/LoopRunner.scheduling.test.ts"
           ],
           "acceptance": [
-            "Test file at src/services/LoopRunner/__tests__/LoopRunner.scheduling.test.ts.",
-            "Declares an inline `RunTaskFake(outcomes: ReadonlyArray<TaskResult | RunTaskError>): Layer.Layer<RunTask, never, never>` helper in the test file. Consumes outcomes in FIFO order; each call to RunTask.run dequeues one and returns it (Effect.succeed for TaskResult, Effect.fail for RunTaskError). Throws if the fake runs out of scripted outcomes.",
-            "Fixture: a contract with two pending tasks (T1 and T2, T2 depends_on T1) saved to a tmp path. RunTaskFake scripted with [PASS for T1, PASS for T2]. Run LoopRunner.run; assert LoopSummary { completed: true, stoppedReason: { _tag: \"AllDone\" }, tasksDone: [T1.id, T2.id], tasksFailed: [], tasksPending: [] }.",
-            "Fixture: same contract, RunTaskFake scripted with [PASS for T1] only, T2.status set to \"done\" in fixture. Loop finds no ready tasks on iteration 1 (T1 is ready, takes PASS, then scan again finds nothing → AllDone). Still AllDone, just one task ran.",
-            "Fixture: a contract with one ready task plus one task blocked on a `failed` task. nextReady should yield the ready one first, then on next iteration yield none. Assert stoppedReason._tag === \"NoReadyTasks\" and remaining contains only the blocked task id.",
-            "Fixture: a contract with more than MAX_ITERATIONS tasks' worth of work (e.g. set MAX_ITERATIONS low via a test-visible override if the constant is exported, or use a FAIL-on-every-attempt script that loops — whichever is simpler). Assert stoppedReason._tag === \"MaxIterations\" with cap: 100.",
-            "Every test uses BunContext.layer + FeatureContractLive + RunTaskFake(...) + LoopRunnerLive. Tmp dirs under `.tap/tmp/looprunner-sched-<uuid>/`, afterAll cleanup.",
-            "No any, no as unknown as; brand<B>(s) helper used throughout. bun test src/services/LoopRunner/__tests__/LoopRunner.scheduling.test.ts passes. Full bun test suite passes. bunx tsc --noEmit passes."
+            { "behavioral": "a test file exists at src/services/LoopRunner/__tests__/LoopRunner.scheduling.test.ts", "mechanism": null },
+            { "behavioral": "the test file declares an inline RunTaskFake(outcomes: ReadonlyArray<TaskResult | RunTaskError>): Layer.Layer<RunTask, never, never> helper that consumes outcomes in FIFO order and throws if the fake runs out of scripted outcomes", "mechanism": "RunTaskFake(outcomes): Layer.Layer<RunTask, never, never>" },
+            { "behavioral": "a test with a 2-task contract (T2 depends_on T1) and RunTaskFake scripted [PASS for T1, PASS for T2] yields LoopSummary { completed: true, stoppedReason: { _tag: 'AllDone' }, tasksDone: [T1.id, T2.id], tasksFailed: [], tasksPending: [] }", "mechanism": "stoppedReason: { _tag: 'AllDone' }" },
+            { "behavioral": "a test with T2.status set to 'done' in fixture and RunTaskFake scripted [PASS for T1] yields AllDone after one task ran", "mechanism": null },
+            { "behavioral": "a test with one ready task plus one task blocked on a failed task yields stoppedReason._tag === 'NoReadyTasks' with remaining containing only the blocked task id", "mechanism": "stoppedReason: { _tag: 'NoReadyTasks' }" },
+            { "behavioral": "a test with more than MAX_ITERATIONS work scripted yields stoppedReason._tag === 'MaxIterations' with cap: 100", "mechanism": "stoppedReason: { _tag: 'MaxIterations', cap: 100 }" },
+            { "behavioral": "every test uses BunContext.layer + FeatureContractLive + RunTaskFake(...) + LoopRunnerLive with tmp dirs under .tap/tmp/looprunner-sched-<uuid>/ and afterAll cleanup", "mechanism": "BunContext.layer, FeatureContractLive, LoopRunnerLive, .tap/tmp/looprunner-sched-<uuid>/" },
+            { "behavioral": "the test file contains no any or as unknown as; brand<B>(s) helper used throughout; bun test src/services/LoopRunner/__tests__/LoopRunner.scheduling.test.ts exits 0; full bun test suite exits 0; bunx tsc --noEmit exits 0", "mechanism": "brand<B>(s)" }
           ],
           "depends_on": [
             "S6.T1"
@@ -311,16 +311,13 @@
             "src/services/LoopRunner/__tests__/LoopRunner.retry.test.ts"
           ],
           "acceptance": [
-            "Test file at src/services/LoopRunner/__tests__/LoopRunner.retry.test.ts.",
-            "Reuses the inline RunTaskFake helper from S6.T2 (duplicate it if keeping test files independent is cleaner, or lift to a shared test-helper file inside __tests__/).",
-            "Fixture: one pending task, maxAttempts: 3. RunTaskFake scripted with [FAIL with issues on iter 1, PASS on iter 2]. Pre-seed a dummy eval/EVAL_RESULT.md (written by the fake on iter 1 or pre-planted in the fixture) so archive has something to copy. After run: assert LoopSummary.completed=true; assert `eval/archive/<task.id>/iter-001-EVAL_RESULT.md` exists on disk with the content of the pre-seeded EVAL_RESULT.md; assert on iter 2 the RunTaskFake saw paths.priorEvalPath === Option.some(<that archive path>).",
-            "To assert paths seen by RunTaskFake, the fake captures and records every `paths` argument it receives so the test can inspect them post-hoc (e.g. `RunTaskFake.calls: ReadonlyArray<{ task; paths }>`).",
-            "Fixture: same task, maxAttempts: 3. RunTaskFake scripted with [FAIL, FAIL, FAIL] (3 FAILs). After run: assert LoopSummary.stoppedReason = { _tag: \"TaskExhausted\", failedTaskIds: [T.id] }; tasksFailed = [T.id]; on-disk contract has task.status === \"failed\" and task.attempts === 3.",
-            "Fixture: same task, maxAttempts: 3. RunTaskFake scripted with [{ _tag: \"AgentMaxTurnsExceeded\", role: \"Composer\" }, PASS]. Agent error counts against attempts identically to FAIL — second iter is a clean retry; LoopSummary.completed=true.",
-            "Fixture: gitStatus helper returns \"\" (non-repo case). For this fixture ONLY, place the featureRoot under `path.join(os.tmpdir(), 'looprunner-retry-nonrepo-' + crypto.randomUUID())` — OUTSIDE the tap-tool git tree — because `.tap/tmp/` sits inside the repo and would return non-empty git status. Drive LoopRunner.run through one task; RunTaskFake records paths.gitStatus === \"\". Other fixtures in this file may continue to use `.tap/tmp/looprunner-retry-<uuid>/` since they do not assert on gitStatus.",
-            "Fixture: exhaustion halt prints the resume-hint block to stdout — assert by capturing console.log via spyOn or by redirecting via a test fixture that stubs console.log before the run and restores after. The captured output contains the task id, the phrase `To resume:`, and the words `status` and `attempts`.",
-            "Tmp dirs for fixtures other than the non-repo one go under `.tap/tmp/looprunner-retry-<uuid>/`, afterAll cleanup. The non-repo fixture's tmp dir is under os.tmpdir() with its own cleanup.",
-            "No any, no as unknown as. bun test src/services/LoopRunner/__tests__/LoopRunner.retry.test.ts passes. Full bun test suite passes. bunx tsc --noEmit passes."
+            { "behavioral": "a test file exists at src/services/LoopRunner/__tests__/LoopRunner.retry.test.ts", "mechanism": null },
+            { "behavioral": "a test with one pending task (maxAttempts: 3) scripted [FAIL on iter 1, PASS on iter 2] yields LoopSummary.completed=true and eval/archive/<task.id>/iter-001-EVAL_RESULT.md exists on disk with the pre-seeded content, and on iter 2 RunTaskFake saw paths.priorEvalPath === Option.some(<that archive path>)", "mechanism": "eval/archive/<task.id>/iter-001-EVAL_RESULT.md, Option.some(<archivePath>)" },
+            { "behavioral": "a test with one pending task (maxAttempts: 3) scripted [FAIL, FAIL, FAIL] yields LoopSummary.stoppedReason = { _tag: 'TaskExhausted', failedTaskIds: [T.id] } with tasksFailed = [T.id] and the on-disk contract showing task.status === 'failed' and task.attempts === 3", "mechanism": "stoppedReason: { _tag: 'TaskExhausted' }, task.status === 'failed', task.attempts === 3" },
+            { "behavioral": "a test scripted with [{ _tag: 'AgentMaxTurnsExceeded', role: 'Composer' }, PASS] completes with LoopSummary.completed=true, confirming agent errors count against attempts identically to FAIL", "mechanism": "{ _tag: 'AgentMaxTurnsExceeded', role: 'Composer' }" },
+            { "behavioral": "a test with featureRoot placed under path.join(os.tmpdir(), 'looprunner-retry-nonrepo-' + crypto.randomUUID()) outside the tap-tool git tree drives LoopRunner.run through one task and RunTaskFake records paths.gitStatus === ''", "mechanism": "path.join(os.tmpdir(), 'looprunner-retry-nonrepo-' + crypto.randomUUID())" },
+            { "behavioral": "a test that spies on console.log before a TaskExhausted run captures output containing the task id, the phrase 'To resume:', and the words 'status' and 'attempts'", "mechanism": "spyOn(console, 'log')" },
+            { "behavioral": "the test file contains no any or as unknown as; bun test src/services/LoopRunner/__tests__/LoopRunner.retry.test.ts exits 0; full bun test suite exits 0; bunx tsc --noEmit exits 0", "mechanism": null }
           ],
           "depends_on": [
             "S6.T1"
@@ -336,14 +333,12 @@
             "src/services/LoopRunner/__tests__/LoopRunner.smoke.test.ts"
           ],
           "acceptance": [
-            "Test file at src/services/LoopRunner/__tests__/LoopRunner.smoke.test.ts.",
-            "Composes Layer.mergeAll(LoopRunnerLive, FeatureContractLive, RunTaskLive, ContextEngineLive, EvalParserLive, AgentRunnerEcho(script)) on top of BunContext.layer. No RunTaskFake — this is the only test that exercises the full stack.",
-            "Fixture: a 2-task contract (T1 and T2, T2 depends_on T1) written to a tmp featureRoot with SPECS.md + prompts resolved. AgentRunnerEcho script: Composer events → ok exit for both attempts on each task; Reviewer events → ok exit with evalFileContent being a canned PASS EVAL_RESULT.md containing <eval:verdict>PASS</eval:verdict>, <eval:rationale>...</eval:rationale>, <eval:issues></eval:issues>.",
-            "After LoopRunner.run: assert LoopSummary { completed: true, stoppedReason: { _tag: \"AllDone\" }, tasksDone containing both task ids, tasksFailed: [], tasksPending: [] }.",
-            "Assert the final contract on disk has both tasks status === \"done\" and attempts === 1.",
-            "Assert logs exist on disk at `<featureRoot>/logs/<task.id>/iter-001-composer.jsonl` and `.../iter-001-reviewer.jsonl` for both tasks.",
-            "Tmp dir under `.tap/tmp/looprunner-smoke-<uuid>/`, afterAll cleanup.",
-            "bun test src/services/LoopRunner/__tests__/LoopRunner.smoke.test.ts passes. Full bun test suite passes. bunx tsc --noEmit passes."
+            { "behavioral": "a test file exists at src/services/LoopRunner/__tests__/LoopRunner.smoke.test.ts", "mechanism": null },
+            { "behavioral": "the test composes Layer.mergeAll(LoopRunnerLive, FeatureContractLive, RunTaskLive, ContextEngineLive, EvalParserLive, AgentRunnerEcho(script)) on top of BunContext.layer with no RunTaskFake", "mechanism": "Layer.mergeAll(LoopRunnerLive, FeatureContractLive, RunTaskLive, ContextEngineLive, EvalParserLive, AgentRunnerEcho(script))" },
+            { "behavioral": "the test uses a 2-task contract (T2 depends_on T1) with AgentRunnerEcho scripted for Composer ok and Reviewer ok with a canned PASS EVAL_RESULT.md containing <eval:verdict>PASS</eval:verdict>, <eval:rationale>, and empty <eval:issues>, then asserts LoopSummary { completed: true, stoppedReason: { _tag: 'AllDone' }, tasksDone containing both task ids, tasksFailed: [], tasksPending: [] }", "mechanism": "<eval:verdict>PASS</eval:verdict>, stoppedReason: { _tag: 'AllDone' }" },
+            { "behavioral": "the final contract on disk has both tasks with status === 'done' and attempts === 1", "mechanism": null },
+            { "behavioral": "log files exist on disk at <featureRoot>/logs/<task.id>/iter-001-composer.jsonl and iter-001-reviewer.jsonl for both tasks", "mechanism": "<featureRoot>/logs/<task.id>/iter-001-composer.jsonl" },
+            { "behavioral": "tmp dir is under .tap/tmp/looprunner-smoke-<uuid>/ with afterAll cleanup; bun test src/services/LoopRunner/__tests__/LoopRunner.smoke.test.ts exits 0; full bun test suite exits 0; bunx tsc --noEmit exits 0", "mechanism": ".tap/tmp/looprunner-smoke-<uuid>/" }
           ],
           "depends_on": [
             "S6.T1"
@@ -358,10 +353,10 @@
       "id": "S7",
       "title": "Retire scripts/bootstrap.ts",
       "acceptance": [
-        "scripts/bootstrap.ts shrinks to a thin layer-composition shim over LoopRunner.run.",
-        "JSDoc limitations block at L2-L16 is deleted.",
-        "Running `bun run scripts/bootstrap.ts composer-reviewer` exits 0 with AllDone (since that contract is already all-done).",
-        "bunx tsc --noEmit passes."
+        { "behavioral": "scripts/bootstrap.ts is approximately 15–30 lines of runtime code with no scheduling logic", "mechanism": null },
+        { "behavioral": "scripts/bootstrap.ts no longer contains the JSDoc limitations block that was at L2-L16", "mechanism": null },
+        { "behavioral": "bun run scripts/bootstrap.ts composer-reviewer exits 0 with a LoopSummary containing stoppedReason._tag === 'AllDone'", "mechanism": null },
+        { "behavioral": "bunx tsc --noEmit exits 0", "mechanism": null }
       ],
       "tasks": [
         {
@@ -371,13 +366,13 @@
             "scripts/bootstrap.ts"
           ],
           "acceptance": [
-            "scripts/bootstrap.ts is approximately 15–30 lines of runtime code (imports may add more lines; the point is no scheduling logic).",
-            "The file parses `featureSlug = process.argv[2]`, constructs `contractPath = path.resolve(process.cwd(), \".tap/features/\" + featureSlug + \"/FEATURE_CONTRACT.json\")` and brands it as AbsolutePath, composes appLayer = Layer.mergeAll(LoopRunnerLive, FeatureContractLive, RunTaskLive, ContextEngineLive, EvalParserLive, AgentRunnerLive) piped with Layer.provideMerge(BunContext.layer), then yields `LoopRunner` from the context, calls `runner.run(contractPath)`, and prints the resulting LoopSummary (human-readable format — iterations, stoppedReason._tag, per-task counts).",
-            "All scheduling logic (findReadyTask, updateTask, driver loop, outcome match, error formatting) is removed. The bootstrap file no longer defines local helpers; it composes services and invokes them.",
-            "Top-of-file JSDoc block at L2-L16 (the five-limitations comment) is deleted. A brief 2-4 line file header may replace it (e.g. \"Entry point until the tap run CLI lands. Composes the full service graph and invokes LoopRunner.run.\") but MUST NOT list the five limitations (they are resolved).",
-            "On pipeline error: print the tagged error (_tag + any path or cause field) to stderr and exit non-zero.",
-            "Running `bun run scripts/bootstrap.ts composer-reviewer` on this repo exits 0 and prints a LoopSummary with stoppedReason._tag === \"AllDone\" (since every task in that contract is already status: done).",
-            "bunx tsc --noEmit passes. Full bun test suite still passes (no test file changed in this task)."
+            { "behavioral": "scripts/bootstrap.ts is approximately 15–30 lines of runtime code (imports may add more lines) with no scheduling logic, no local helpers for findReadyTask, updateTask, or outcome matching", "mechanism": null },
+            { "behavioral": "scripts/bootstrap.ts parses featureSlug = process.argv[2], constructs contractPath = path.resolve(process.cwd(), '.tap/features/' + featureSlug + '/FEATURE_CONTRACT.json') branded as AbsolutePath, composes appLayer = Layer.mergeAll(LoopRunnerLive, FeatureContractLive, RunTaskLive, ContextEngineLive, EvalParserLive, AgentRunnerLive) piped with Layer.provideMerge(BunContext.layer), then yields LoopRunner, calls runner.run(contractPath), and prints the resulting LoopSummary", "mechanism": "Layer.mergeAll(LoopRunnerLive, FeatureContractLive, RunTaskLive, ContextEngineLive, EvalParserLive, AgentRunnerLive), Layer.provideMerge(BunContext.layer)" },
+            { "behavioral": "all scheduling logic (findReadyTask, updateTask, driver loop, outcome match, error formatting) is removed from scripts/bootstrap.ts", "mechanism": null },
+            { "behavioral": "the top-of-file JSDoc block listing the five limitations (L2-L16) is deleted; a brief 2-4 line file header may replace it but must NOT list the five limitations", "mechanism": null },
+            { "behavioral": "on pipeline error scripts/bootstrap.ts prints the tagged error (_tag plus any path or cause field) to stderr and exits non-zero", "mechanism": null },
+            { "behavioral": "bun run scripts/bootstrap.ts composer-reviewer exits 0 and prints a LoopSummary with stoppedReason._tag === 'AllDone'", "mechanism": null },
+            { "behavioral": "bunx tsc --noEmit exits 0; full bun test suite still exits 0 (no test file changed in this task)", "mechanism": null }
           ],
           "depends_on": [
             "S6.T1"
