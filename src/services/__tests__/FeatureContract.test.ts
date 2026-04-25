@@ -1,8 +1,9 @@
 import { describe, test, expect, afterAll } from "bun:test";
-import { Effect, Exit, Layer, Option } from "effect";
+import { Effect, Exit, Layer, Option, Schema } from "effect";
 import { FileSystem } from "@effect/platform";
 import { BunContext } from "@effect/platform-bun";
 import {
+  AcceptanceCriterionSchema,
   FeatureContract,
   FeatureContractLive,
   nextReady,
@@ -422,6 +423,39 @@ describe("FeatureContract", () => {
       expect(f2.feature).toBe(f.feature);
       // T2 attempts unchanged
       expect(f2.stories[0]!.tasks[1]!.attempts).toBe(0);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // AcceptanceCriterionSchema — dual-form lenient union
+  // -------------------------------------------------------------------------
+
+  describe("AcceptanceCriterionSchema", () => {
+    test("legacy single-string criterion decodes", () => {
+      const result = Schema.decodeUnknownSync(AcceptanceCriterionSchema)("some criterion");
+      expect(result).toBe("some criterion");
+    });
+
+    test("dual-form struct with mechanism: Option.some() decodes", () => {
+      const result = Schema.decodeUnknownSync(AcceptanceCriterionSchema)({
+        behavioral: "the thing works",
+        mechanism: "via foo.ts",
+      });
+      expect(result).toEqual({
+        behavioral: "the thing works",
+        mechanism: Option.some("via foo.ts"),
+      });
+    });
+
+    test("dual-form struct with mechanism: Option.none() decodes", () => {
+      const result = Schema.decodeUnknownSync(AcceptanceCriterionSchema)({
+        behavioral: "the thing works",
+        mechanism: null,
+      });
+      expect(result).toEqual({
+        behavioral: "the thing works",
+        mechanism: Option.none(),
+      });
     });
   });
 });

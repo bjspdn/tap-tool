@@ -13,11 +13,19 @@ export const AbsolutePathSchema = Schema.String.pipe(Schema.filter((_s): _s is A
 
 export const TaskStatusSchema = Schema.Literal("pending", "in_progress", "done", "failed");
 
+export const AcceptanceCriterionSchema = Schema.Union(
+  Schema.String,
+  Schema.Struct({
+    behavioral: Schema.String,
+    mechanism: Schema.OptionFromNullOr(Schema.String),
+  }),
+);
+
 export const TaskSchema = Schema.Struct({
   id: TaskIdSchema,
   title: Schema.String,
   files: Schema.Array(AbsolutePathSchema),
-  acceptance: Schema.Array(Schema.String),
+  acceptance: Schema.Array(AcceptanceCriterionSchema),
   depends_on: Schema.Array(TaskIdSchema),
   status: TaskStatusSchema,
   attempts: Schema.Number,
@@ -27,7 +35,7 @@ export const TaskSchema = Schema.Struct({
 export const StorySchema = Schema.Struct({
   id: StoryIdSchema,
   title: Schema.String,
-  acceptance: Schema.Array(Schema.String),
+  acceptance: Schema.Array(AcceptanceCriterionSchema),
   tasks: Schema.Array(TaskSchema),
 });
 

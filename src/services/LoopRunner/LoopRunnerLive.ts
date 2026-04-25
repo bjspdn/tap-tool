@@ -157,7 +157,7 @@ export const LoopRunnerLive: Layer.Layer<LoopRunner, never, never> = Layer.succe
             // PASS → mark done + save + commit (best-effort) + continue loop
             feature = fc.markStatus(feature, task.id, "done");
             yield* fc.save(contractPath, feature);
-            yield* commitTask(featureRoot, task, contractPath);
+            yield* commitTask(brand<"AbsolutePath">(process.cwd()), task, contractPath);
           } else {
             // FAIL (or RunTask error) → log what went wrong, then retry or halt
             if (outcome._tag === "Left") {

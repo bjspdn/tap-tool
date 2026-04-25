@@ -1,17 +1,20 @@
-import { Effect } from "effect";
+import { Effect, Fiber, Stream } from "effect";
 import { Command, CommandExecutor, FileSystem } from "@effect/platform";
 import * as nodePath from "node:path";
 
 /**
  * Stages `task.files`, `contractPath`, and (if present on disk) the sibling
- * `SPECS.md`, then commits with the message `task(<id>): <title>`.
+ * `SPECS.md`, then commits with the message `feat(<id>): <title>`.
  *
- * All errors are swallowed — this is best-effort housekeeping. If the commit
- * fails (nothing staged, hook failure, etc.) the loop continues uninterrupted.
+ * `projectRoot` must be the repository working-tree root (i.e. `process.cwd()`
+ * from the bootstrap entry point). All git operations run from there so that
+ * project-root-relative paths in `task.files` resolve correctly.
+ *
+ * Errors are caught and logged — best-effort housekeeping that never blocks the loop.
  * Not a Context.Tag; plain Effect-returning function.
  */
 export const commitTask = (
-  cwd: AbsolutePath,
+  projectRoot: AbsolutePath,
   task: Task,
   contractPath: AbsolutePath,
 ): Effect.Effect<void, never, CommandExecutor.CommandExecutor | FileSystem.FileSystem> =>
@@ -20,7 +23,9 @@ export const commitTask = (
     const fs = yield* FileSystem.FileSystem;
 
     const specsPath = nodePath.join(nodePath.dirname(contractPath as string), "SPECS.md");
-    const specsExists = yield* fs.exists(specsPath);
+    const specsExists = yield* fs.exists(specsPath).pipe(
+      Effect.catchAll(() => Effect.succeed(false)),
+    );
 
     // Deduplicate: task.files may repeat entries, and contractPath may already
     // be listed in task.files.
@@ -42,18 +47,65 @@ export const commitTask = (
       filesToAdd.push(specsPath);
     }
 
-    yield* executor.exitCode(
-      Command.make("git", "add", ...filesToAdd).pipe(
-        Command.workingDirectory(cwd as string),
-      ),
-    );
+    const runGit = (
+      args: string[],
+    ): Effect.Effect<{ exitCode: number; stderr: string }, never, never> =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const process = yield* executor.start(
+            Command.make("git", ...args).pipe(
+              Command.workingDirectory(projectRoot as string),
+              Command.stderr("pipe"),
+            ),
+          ).pipe(Effect.orDie);
 
-    yield* executor.exitCode(
-      Command.make(
-        "git",
-        "commit",
-        "-m",
-        `feat(${task.id as string}): ${task.title}`,
-      ).pipe(Command.workingDirectory(cwd as string)),
+          const stderrChunks: Uint8Array[] = [];
+          const stderrFiber = yield* Effect.fork(
+            Stream.runForEach(process.stderr, (chunk) =>
+              Effect.sync(() => {
+                stderrChunks.push(chunk);
+              }),
+            ).pipe(Effect.orDie),
+          );
+
+          const code = yield* process.exitCode.pipe(Effect.orDie);
+          yield* Fiber.join(stderrFiber);
+
+          return {
+            exitCode: code as unknown as number,
+            stderr: Buffer.concat(stderrChunks).toString("utf-8").trim(),
+          };
+        }),
+      ).pipe(Effect.orDie);
+
+    const addResult = yield* runGit(["add", ...filesToAdd]);
+    if (addResult.exitCode !== 0) {
+      console.error(
+        `[git-commit] git add failed: task=${task.id as string} exit=${addResult.exitCode} stderr=${addResult.stderr}`,
+      );
+      return;
+    }
+
+    const commitMsg = `feat(${task.id as string}): ${task.title}`;
+    const commitResult = yield* runGit(["commit", "-m", commitMsg]);
+
+    if (commitResult.exitCode === 0) {
+      return;
+    }
+
+    // exit code 1 from git commit when there is nothing to stage is benign.
+    if (
+      commitResult.exitCode === 1 &&
+      (commitResult.stderr.includes("nothing to commit") ||
+        commitResult.stderr === "")
+    ) {
+      console.log(
+        `[git-commit] nothing to commit for task=${task.id as string} (index unchanged)`,
+      );
+      return;
+    }
+
+    console.error(
+      `[git-commit] git commit failed: task=${task.id as string} exit=${commitResult.exitCode} stderr=${commitResult.stderr}`,
     );
-  }).pipe(Effect.catchAll(() => Effect.void));
+  });
