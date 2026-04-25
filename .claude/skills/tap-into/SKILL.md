@@ -31,7 +31,7 @@ The moment you have a feature seed, kick off research **in parallel** — wait u
 
 **Include the dependency source in scope when it matters.** When the feature touches a library the repo already pulls in, the installed source is ground truth — types, exported surface, real behavior — and is usually more useful than public docs. Every language has a conventional place where its package manager drops installed code. Detect it from the repo (the lockfile, manifest, or build config names the ecosystem; the ecosystem tells you where installed sources live) and instruct the Explore agent to read the relevant package there. Pass the concrete path so the agent doesn't have to guess. If you can't find an installed copy locally, fall back to the web lane — but the on-disk source, when present, beats a web lookup every time.
 
-<!-- >> TODO: The forthcoming `Validator` sub-agent's mechanism-viability check follows this same stack-detection convention, but only has real tool-grounded dispatch for TypeScript and Rust stacks — other stacks (Python, Go, Ruby, Clojure, Elixir, etc.) degrade to LLM-only prose review with `warning` severity. — Tool is currently single-user (TS + Rust projects only); expanding the stack-dispatch table speculatively would add untested code paths for ecosystems we have no usage data on. — Revisit when the tool is distributed beyond the initial author, or when a contract for a non-TS, non-Rust project is attempted. -->
+// TODO: mechanism-viability check should run language-agnostic — derive the project's quality gates from inspecting CI config, manifest/build config, task runners, and contributor docs rather than dispatching on a hardcoded stack list. — revisit when Validator is implemented.
 
 Multiple Explores go in a **single message, multiple tool calls** so they run concurrently. They run in the foreground — wait for all of them to return, compile the findings into a short running summary, then resume the interview with that context in hand.
 
@@ -55,7 +55,7 @@ The interview is Socratic — you probe, the user pushes back, both of you get s
 - **Dependencies.** What must be true before each task starts? This becomes `depends_on` in the contract.
 - **Decomposition.** One feature → N stories → M tasks per story. A story is a user-visible slice. A task is a commit-sized unit with a clear file list and description.
 
-**Use every tool the conversation affords.** When a schema clarifies intent, write a schema. When a code snippet makes a tradeoff concrete, write the snippet (inferred from the repo's stack — if it's TypeScript + Effect, the snippet is TypeScript + Effect). When the flow is easier as a picture, draw a diagram.
+**Use every tool the conversation affords.** When a schema clarifies intent, write a schema. When a code snippet makes a tradeoff concrete, write the snippet in the language and idioms the target repo uses. When the flow is easier as a picture, draw a diagram.
 
 The user is encouraged to: disagree, interrupt, request more research ("go look this up"), reframe the problem, or tell you a question is off-base. Take pushback seriously — it almost always surfaces a constraint you missed.
 
@@ -174,7 +174,7 @@ Rules:
 
 - `description` is required at every level (feature, story, task), ≤3 lines per level.
 - `description` is the obligation surface — what the Composer is supposed to realize. The Reviewer judges whether the diff plausibly realizes it.
-- When a test file is load-bearing for a task, the description may name it (e.g. "with red→green→refactor in `src/services/__tests__/Foo.test.ts`"). Otherwise the Composer picks test names.
+- When a test file is load-bearing for a task, the description may name it (e.g. "with red→green→refactor in the test file for this module"). Otherwise the Composer picks test names.
 - `acceptance` field is GONE — do not emit it.
 - `id` is stable and hierarchical: `S<n>` for stories, `S<n>.T<m>` for tasks. Never renumber after emitting — downstream logs key off these.
 - `depends_on` references task ids, not stories. Cross-story dependencies are allowed.

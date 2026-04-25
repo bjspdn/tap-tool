@@ -21,7 +21,7 @@ Apply the four behavior prompts to the diff. For each one, gather concrete evide
 
 - A file path and line number: `src/types/RunTask.d.ts:12`
 - A grep hit: `grep -n "EvalComment" src/types/RunTask.d.ts`
-- A command result: `bunx tsc --noEmit` output (run it yourself — see step 2)
+- A command result: the project's typecheck gate output (run it yourself — see step 2)
 - Confirmed absence: "file does not exist at the expected path"
 
 Hand-waving ("looks correct", "seems fine") is not evidence. If you cannot produce evidence, treat the question as failing.
@@ -32,32 +32,19 @@ Read `task_description` from the rendered prompt. Read the diff. For each named 
 **Prompt 2 — Are there obvious bugs, missing error handling, or logic errors?**
 Inspect control flow in the changed files. Check: are fallible operations wrapped in Effect? Are error channels handled or threaded? Are edge cases (empty array, None, missing file) covered?
 
-**Prompt 3 — Does it follow codebase conventions (CLAUDE.md, TDD, test placement, branding, Effect)?**
-Check:
-- Tests live in a sibling `__tests__/` folder named `<SourceName>.test.ts`.
-- `Option<T>` used for absent values, not `T | undefined | null`.
-- Branded types for identifiers where type mixing would be a bug.
-- Effect for fallible operations; `throw` only for defect-level invariant violations.
-- No `any`, no `as unknown as`.
-- PascalCase for single-class/component files; camelCase for multi-utility modules.
+**Prompt 3 — Does it follow project conventions?**
+Match the project's existing style. Test placement, error-handling idioms, type-system usage, naming — derive these from `CLAUDE.md` / `AGENTS.md` / `CONTRIBUTING.md` if present, otherwise mirror nearby code in the changed files.
 
-**Prompt 4 — Does it pass the quality gates? (`bun test` + `bunx tsc --noEmit`)**
-See step 2 (zero-trust verification). Both must exit zero for PASS.
+**Prompt 4 — Does it pass the quality gates?**
+See step 2 (zero-trust verification). Every applicable quality gate must exit zero for PASS.
 
 </subsection>
 
 <subsection name="step-2-zero-trust-verification">
 
-Do not trust any test or type-check results reported by the Composer. Run independently:
+Do not trust any test or type-check results reported by the Composer. Re-run every quality gate the project enforces (tests, typecheck, lint, build, format-check). Capture stdout and stderr. If any gate exits non-zero, that is a FAIL. If the Composer's log claims green but your run is red, the Composer's claim is irrelevant — your result governs.
 
-```
-bun test
-bunx tsc --noEmit
-```
-
-Capture stdout and stderr. If either command exits non-zero, that is a FAIL. If the Composer's log claims green but your run is red, the Composer's claim is irrelevant — your result governs.
-
-If `bun test` or `bunx tsc --noEmit` is not applicable for this task (e.g. the task produces only static markdown), note the reason explicitly; do not omit the step silently.
+If the task produced only static documentation, the relevant quality gates may not apply — note which were skipped and why.
 
 </subsection>
 
@@ -80,11 +67,10 @@ Emit `PASS` only when all of the following hold simultaneously:
 
 1. The task description is plausibly realized — the diff does what the description says (Prompt 1).
 2. No obvious bugs, missing error handling, or logic errors (Prompt 2).
-3. Codebase conventions followed (Prompt 3).
-4. `bun test` exits zero.
-5. `bunx tsc --noEmit` exits zero.
-6. No anti-pattern violations detected (consult the `anti-patterns` skill).
-7. No scope violations (step 3 produced no out-of-bounds files).
+3. Project conventions followed (Prompt 3).
+4. Every applicable quality gate exits clean.
+5. No anti-pattern violations detected (consult the `anti-patterns` skill).
+6. No scope violations (step 3 produced no out-of-bounds files).
 
 Any single miss — description not realized, an obvious bug, a convention violation, a test failure, a type error, an out-of-bounds file, an anti-pattern — produces `FAIL`.
 
@@ -131,7 +117,7 @@ When verdict is PASS, `<eval:comments>` contains an empty YAML list. When verdic
 
 <section name="failure-modes">
 
-- `bun test` or `bunx tsc --noEmit` not available in PATH: report as a FAIL comment with `comment: "Ensure bun is installed and on PATH before Reviewer is spawned"`.
+- Quality gates not available in PATH: report as a FAIL comment with `comment: "Ensure the project's quality gate tools are installed and on PATH before Reviewer is spawned"`.
 - `eval_path` not supplied in the rendered prompt: write the file to `.tap/features/<slug>/eval/EVAL_RESULT.md` as a fallback and note the missing placeholder as a FAIL comment.
 - `git diff --name-only HEAD` returns no output on a fresh repo with no commits: use `git status --short` alone and note the limitation.
 

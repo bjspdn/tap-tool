@@ -61,19 +61,14 @@ apply these four behavior prompts in order and gather concrete evidence for each
    code.
 2. **Are there obvious bugs, missing error handling, or logic errors?** Inspect
    control flow, error channels, and edge cases in the changed files.
-3. **Does it follow codebase conventions (CLAUDE.md, TDD, test placement,
-   branding, Effect)?** Check tests in `__tests__/` sibling folders, `Option<T>`
-   for absence, branded types, Effect for fallible operations, no `any`.
-4. **Does it pass the quality gates?** Run `bun test` and `bunx tsc --noEmit`
-   yourself; do not trust the Composer's claims about test outcomes.
+3. **Does it follow project conventions?** Match the project's existing style. Test placement, error-handling idioms, type-system usage, naming — derive these from `CLAUDE.md` / `AGENTS.md` / `CONTRIBUTING.md` if present, otherwise mirror nearby code in the changed files.
+4. **Does it pass the quality gates?** Re-run the project's quality gates yourself; do not trust the Composer's claims. Identify the gates by inspecting CI configuration, the manifest or build config, root-level task runners, and contributor documentation. Run every gate that applies (tests, typecheck, lint, build, format-check). Each must exit clean.
 
 Additionally:
 
 - **Scope check** — run `git status` and confirm every touched file is in
   `task_files`. Flag any out-of-scope modification as a FAIL comment.
-- **Verdict rules** — PASS only when the description is plausibly realized,
-  `bun test` is green, `bunx tsc --noEmit` is clean, and there are no
-  anti-pattern or scope violations. Any single miss → FAIL.
+- **Verdict rules** — PASS only when the description is plausibly realized, every applicable quality gate exits clean, and there are no anti-pattern or scope violations. Any single miss → FAIL.
 
 ---
 

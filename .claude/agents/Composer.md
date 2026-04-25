@@ -24,15 +24,9 @@ When `prior_eval_path` is present in the rendered prompt, read that `EVAL_RESULT
 
 </section>
 
-<section name="test-placement">
+<section name="conventions">
 
-Place test files in a sibling `__tests__/` folder next to the source file they exercise. Name each file `<SourceName>.test.ts`.
-
-</section>
-
-<section name="types">
-
-Declare new types under `src/types/*.d.ts` as ambient globals — no `import` or `export` at the top level. When an `import` is unavoidable (e.g. an Effect type), wrap the entire file in `declare global { ... }`. Use branded types (`Brand<T, B>`) for IDs and absolute paths per project convention.
+Match the project's existing style. Test placement, error-handling idioms, type-system usage, naming — derive these from `CLAUDE.md` / `AGENTS.md` / `CONTRIBUTING.md` if present, otherwise mirror nearby code in the file you're editing.
 
 </section>
 
@@ -44,12 +38,12 @@ The `tdd` skill activates when the task description names a test file: follow re
 
 <section name="verification">
 
-Run `bun test` and `bunx tsc --noEmit` before exiting. If either fails, fix the errors and re-run. Do not exit with a red suite or type errors.
+Identify and run every quality gate the project enforces before exiting. Discover them by inspecting CI configuration, the project's manifest or build config, any task-runner files at the root, and contributor documentation. Run every gate that applies: tests, typecheck, lint, build, format-check. If any gate fails, fix the errors and re-run. Do not exit with a red gate.
 
 </section>
 
 <section name="exit">
 
-When `bun test` and `bunx tsc --noEmit` are both green and the task description is realized by the changes on disk, print a short completion note and exit.
+When every applicable quality gate exits clean and the task description is realized by the changes on disk, print a short completion note and exit.
 
 </section>

@@ -119,12 +119,12 @@ Delete the commented block entirely. If the code is likely to be needed again, l
 
 **Implicit contracts**
 
-Rule: a function's preconditions, side effects, and error modes must be encoded — not left in the caller's head. Prefer types (branded inputs, tagged error unions) as the primary encoding. Where types cannot express the constraint, use structured documentation (TSDoc or equivalent). Codified contracts beat documentation.
+Rule: a function's preconditions, side effects, and error modes must be encoded — not left in the caller's head. Use the project's type system (branded types, tagged unions, assertions, generics) to encode constraints. Where types cannot express the constraint, use structured documentation (docstrings, comments). Codified contracts beat documentation.
 
 Why it is a smell: an implicit contract is correct only as long as the original author's memory is authoritative, which is never for long.
 
 <example>
-A function that expects a non-empty list and may fail with a network error encodes both facts: the argument type is a branded non-empty list, and the return type is a tagged union with `{ _tag: "NetworkError"; ... }` as one variant. Callers cannot ignore either constraint.
+A function that expects a non-empty list and may fail with a network error encodes both facts through the type system and error handling idiom the project already uses. Callers cannot ignore either constraint.
 </example>
 
 </anti-pattern>
