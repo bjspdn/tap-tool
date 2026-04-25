@@ -1,13 +1,17 @@
-import { Effect, Layer, Option } from "effect";
-import { FileSystem } from "@effect/platform";
+import { Effect, Layer, Match, Option } from "effect";
 import * as nodePath from "node:path";
 import { brand } from "../brand";
-import { filesystemError } from "../AgentRunner";
 import { FeatureContract } from "../FeatureContract";
 import { RunTask } from "../RunTask";
 import { captureGitStatus } from "./gitStatus";
 import { commitTask } from "./gitCommit";
-import { archivePriorEval } from "./archive";
+import { resolvePriorEvalPath } from "./priorEval";
+import {
+  decideIteration,
+  decideTerminal,
+  buildLoopSummary,
+} from "./iterationPolicy";
+import { formatResumeHint, formatIterationFailure } from "./loopReporter";
 import { LoopRunner, MAX_ITERATIONS } from "./LoopRunner";
 
 // ---------------------------------------------------------------------------
@@ -31,95 +35,31 @@ export const LoopRunnerLive: Layer.Layer<LoopRunner, never, never> = Layer.succe
         const fc = yield* FeatureContract;
         const rt = yield* RunTask;
 
-        // ------------------------------------------------------------------
-        // Load and validate contract
-        // ------------------------------------------------------------------
         let feature = yield* fc.load(contractPath);
 
         const featureRoot = brand<"AbsolutePath">(nodePath.dirname(contractPath));
         const specsPath = brand<"AbsolutePath">(nodePath.join(featureRoot as string, "SPECS.md"));
-        const evalDir = brand<"AbsolutePath">(nodePath.join(featureRoot as string, "eval"));
-        const evalResultPath = brand<"AbsolutePath">(nodePath.join(evalDir as string, "EVAL_RESULT.md"));
 
-        // ------------------------------------------------------------------
-        // Attempt loop
-        // ------------------------------------------------------------------
         let iterations = 0;
         let stoppedReason: StoppedReason | null = null;
 
         while (iterations < MAX_ITERATIONS) {
           iterations++;
 
-          // Pick the next schedulable task
           const maybeTask = fc.nextReady(feature);
-
           if (Option.isNone(maybeTask)) {
-            // Determine whether we finished or got stuck
-            const allTasks = feature.stories.flatMap((s) => s.tasks);
-            const remaining = allTasks
-              .filter((t) => t.status === "pending" || t.status === "in_progress")
-              .map((t) => t.id);
-
-            stoppedReason =
-              remaining.length === 0
-                ? { _tag: "AllDone" }
-                : { _tag: "NoReadyTasks", remaining };
+            stoppedReason = decideTerminal(feature);
             break;
           }
-
           const task = maybeTask.value;
-          // `attempt` is 1-indexed and refers to the upcoming run.
-          // We defer fc.incrementAttempt until after RunTask resolves so that a
-          // rate-limit halt leaves the attempt counter unchanged — the operator
-          // resumes with the same budget intact.
           const attempt = task.attempts + 1;
 
-          // ----------------------------------------------------------------
-          // Mark in_progress and persist (attempt not yet incremented on disk)
-          // ----------------------------------------------------------------
           feature = fc.markStatus(feature, task.id, "in_progress");
           yield* fc.save(contractPath, feature);
 
-          // ----------------------------------------------------------------
-          // Prior-eval archiving (attempt > 1 = retry)
-          //
-          // Guard: if a previous run died between markStatus/save and the
-          // Composer/Reviewer cycle, EVAL_RESULT.md may not exist even though
-          // attempts > 0. Skip the archive in that case and treat this run as
-          // a fresh start (priorEvalPath = none).
-          // ----------------------------------------------------------------
-          const fs = yield* FileSystem.FileSystem;
-          const priorEvalPath: Option.Option<AbsolutePath> =
-            attempt > 1
-              ? yield* fs
-                  .exists(evalResultPath as string)
-                  .pipe(
-                    Effect.mapError((cause) => filesystemError(evalResultPath, cause)),
-                    Effect.flatMap((exists) => {
-                      if (!exists) return Effect.succeed(Option.none<AbsolutePath>());
-                      const archivePath = brand<"AbsolutePath">(
-                        nodePath.join(
-                          evalDir as string,
-                          "archive",
-                          task.id,
-                          `iter-${String(attempt - 1).padStart(3, "0")}-EVAL_RESULT.md`,
-                        ),
-                      );
-                      return archivePriorEval(evalResultPath, archivePath).pipe(
-                        Effect.map(() => Option.some(archivePath)),
-                      );
-                    }),
-                  )
-              : Option.none();
-
-          // ----------------------------------------------------------------
-          // Capture git status (non-fatal — returns "" on failure)
-          // ----------------------------------------------------------------
+          const priorEvalPath = yield* resolvePriorEvalPath(featureRoot, task.id, attempt);
           const gitStatus = yield* captureGitStatus(featureRoot);
 
-          // ----------------------------------------------------------------
-          // Run the task pipeline; wrap in Either to handle FAIL gracefully
-          // ----------------------------------------------------------------
           const outcome = yield* rt
             .run(task, feature, {
               featureRoot,
@@ -131,117 +71,69 @@ export const LoopRunnerLive: Layer.Layer<LoopRunner, never, never> = Layer.succe
             })
             .pipe(Effect.either);
 
-          // Rate-limit: halt the loop without consuming the retry budget.
-          // We do NOT increment the attempt counter and do NOT mark the task
-          // failed — status stays in_progress so the operator can resume once
-          // the rate limit clears. Persist current in-memory state to capture
-          // the in_progress status already written above.
-          if (outcome._tag === "Left" && outcome.left._tag === "RateLimited") {
-            yield* fc.save(contractPath, feature);
-            stoppedReason = {
-              _tag: "RateLimited",
-              role: outcome.left.role,
-              resetsAt: outcome.left.resetsAt,
-            };
+          const decision = decideIteration(attempt, task.maxAttempts, outcome);
+
+          // Match.exhaustive ensures a new Decision tag breaks the build.
+          const result = yield* Match.value(decision).pipe(
+            Match.tag("RateLimited", ({ role, resetsAt }) =>
+              Effect.gen(function* () {
+                yield* fc.save(contractPath, feature);
+                return { halt: { _tag: "RateLimited", role, resetsAt } as StoppedReason };
+              }),
+            ),
+            Match.tag("Pass", () =>
+              Effect.gen(function* () {
+                feature = fc.incrementAttempt(feature, task.id);
+                feature = fc.markStatus(feature, task.id, "done");
+                yield* fc.save(contractPath, feature);
+                yield* commitTask(brand<"AbsolutePath">(process.cwd()), task, contractPath);
+                return { halt: null as StoppedReason | null };
+              }),
+            ),
+            Match.tag("Retry", () =>
+              Effect.gen(function* () {
+                feature = fc.incrementAttempt(feature, task.id);
+                yield* fc.save(contractPath, feature);
+                yield* Effect.sync(() =>
+                  console.error(formatIterationFailure(iterations, task, attempt, outcome)),
+                );
+                return { halt: null as StoppedReason | null };
+              }),
+            ),
+            Match.tag("Exhausted", () =>
+              Effect.gen(function* () {
+                feature = fc.incrementAttempt(feature, task.id);
+                feature = fc.markStatus(feature, task.id, "failed");
+                yield* fc.save(contractPath, feature);
+                yield* Effect.sync(() =>
+                  console.error(formatIterationFailure(iterations, task, attempt, outcome)),
+                );
+                return {
+                  halt: {
+                    _tag: "TaskExhausted",
+                    failedTaskIds: [task.id],
+                  } as StoppedReason,
+                };
+              }),
+            ),
+            Match.exhaustive,
+          );
+
+          if (result.halt !== null) {
+            stoppedReason = result.halt;
             break;
-          }
-
-          // Non-rate-limited outcomes consume the attempt budget.
-          feature = fc.incrementAttempt(feature, task.id);
-
-          const isPass =
-            outcome._tag === "Right" && outcome.right.verdict === "PASS";
-          const isExhausted = attempt >= task.maxAttempts;
-
-          if (isPass) {
-            // PASS → mark done + save + commit (best-effort) + continue loop
-            feature = fc.markStatus(feature, task.id, "done");
-            yield* fc.save(contractPath, feature);
-            yield* commitTask(brand<"AbsolutePath">(process.cwd()), task, contractPath);
-          } else {
-            // FAIL (or RunTask error) → log what went wrong, then retry or halt
-            if (outcome._tag === "Left") {
-              const safe = JSON.parse(
-                JSON.stringify(outcome.left, (k, v) => {
-                  if (k === "cause") return String(v).slice(0, 200);
-                  return v;
-                }),
-              );
-              yield* Effect.sync(() =>
-                console.error(
-                  `[loop-runner] iter ${iterations} task ${task.id} attempt ${attempt}/${task.maxAttempts} failed: _tag=${outcome.left._tag} ${JSON.stringify(safe)}`,
-                ),
-              );
-            } else if (outcome.right.verdict === "FAIL") {
-              yield* Effect.sync(() =>
-                console.error(
-                  `[loop-runner] iter ${iterations} task ${task.id} attempt ${attempt}/${task.maxAttempts} verdict=FAIL\n  summary: ${outcome.right.summary}\n  comments: ${outcome.right.comments.length}`,
-                ),
-              );
-            }
-
-            if (isExhausted) {
-              feature = fc.markStatus(feature, task.id, "failed");
-              yield* fc.save(contractPath, feature);
-              stoppedReason = { _tag: "TaskExhausted", failedTaskIds: [task.id] };
-              break;
-            }
-            // Attempt budget remains — persist incremented attempt counter.
-            yield* fc.save(contractPath, feature);
           }
         }
 
-        // MAX_ITERATIONS safety cap
         if (stoppedReason === null) {
           stoppedReason = { _tag: "MaxIterations", cap: MAX_ITERATIONS };
         }
 
-        // ------------------------------------------------------------------
-        // Build LoopSummary
-        // ------------------------------------------------------------------
         const allTasks = feature.stories.flatMap((s) => s.tasks);
-        const tasksDone = allTasks.filter((t) => t.status === "done").map((t) => t.id);
-        const tasksFailed = allTasks.filter((t) => t.status === "failed").map((t) => t.id);
-        const tasksPending = allTasks
-          .filter((t) => t.status === "pending" || t.status === "in_progress")
-          .map((t) => t.id);
+        const summary = buildLoopSummary(feature, iterations, stoppedReason);
 
-        const summary: LoopSummary = {
-          feature: feature.feature,
-          iterations,
-          completed: stoppedReason._tag === "AllDone",
-          stoppedReason,
-          tasksDone,
-          tasksFailed,
-          tasksPending,
-        };
-
-        // ------------------------------------------------------------------
-        // Resume hint (printed when tasks failed)
-        // ------------------------------------------------------------------
-        if (tasksFailed.length > 0) {
-          const failedLines = allTasks
-            .filter((t) => t.status === "failed")
-            .map((t) => `  · ${t.id}  "${t.title}"`)
-            .join("\n");
-
-          const n = tasksFailed.length;
-          const hint = [
-            `[loop-runner] feature "${feature.feature}" halted — ${n} task${n === 1 ? "" : "s"} failed, ${tasksDone.length} done, ${tasksPending.length} pending.`,
-            "",
-            "Failed tasks (exhausted maxAttempts):",
-            failedLines,
-            "",
-            "To resume:",
-            `  1. Edit .tap/features/${feature.feature}/FEATURE_CONTRACT.json`,
-            `  2. For each failed task, set "status": "pending" and "attempts": 0`,
-            `     (or bump "maxAttempts" if you want more retries without a reset)`,
-            `  3. Optionally tighten the task's "description" based on what the last`,
-            `     EVAL_RESULT.md flagged — see eval/archive/<taskId>/`,
-            `  4. Re-run: bun run scripts/bootstrap.ts ${feature.feature}`,
-          ].join("\n");
-
-          yield* Effect.sync(() => console.log(hint));
+        if (summary.tasksFailed.length > 0) {
+          yield* Effect.sync(() => console.log(formatResumeHint(summary, allTasks)));
         }
 
         return summary;
