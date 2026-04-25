@@ -201,8 +201,8 @@
             "S6.T1",
             "S6.T3"
           ],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         },
         {
