@@ -126,7 +126,25 @@ export const runTask = (
     // Step 4 — Start clock.
     const startMs = yield* Clock.currentTimeMillis;
 
-    // Step 5 — Render Composer contract.
+    // Inline helper — owns runner.run wiring; render calls stay at each call site.
+    const runRole = (plan: {
+      role: AgentRole;
+      prompt: string;
+      logPath: AbsolutePath;
+      stderrLogPath: AbsolutePath;
+      evalPath?: AbsolutePath;
+    }) =>
+      runner.run({
+        role: plan.role,
+        stdin: plan.prompt,
+        cwd: paths.featureRoot,
+        attempt: paths.attempt,
+        logPath: plan.logPath,
+        stderrLogPath: plan.stderrLogPath,
+        evalPath: plan.evalPath,
+      });
+
+    // Steps 5–6 — Composer
     const composerPrompt = yield* engine.renderComposer({
       task,
       feature,
@@ -136,18 +154,14 @@ export const runTask = (
       priorEval: paths.priorEvalPath,
       gitStatus: paths.gitStatus,
     });
-
-    // Step 6 — Run Composer.
-    yield* runner.run({
+    yield* runRole({
       role: "Composer",
-      stdin: composerPrompt,
-      cwd: paths.featureRoot,
-      attempt: paths.attempt,
+      prompt: composerPrompt,
       logPath: composerLogPath,
       stderrLogPath: composerStderrLogPath,
     });
 
-    // Step 7 — Render Reviewer contract.
+    // Steps 7–8 — Reviewer
     const reviewerPrompt = yield* engine.renderReviewer({
       task,
       feature,
@@ -156,13 +170,9 @@ export const runTask = (
       attempt: paths.attempt,
       evalPath: evalResultPath,
     });
-
-    // Step 8 — Run Reviewer.
-    yield* runner.run({
+    yield* runRole({
       role: "Reviewer",
-      stdin: reviewerPrompt,
-      cwd: paths.featureRoot,
-      attempt: paths.attempt,
+      prompt: reviewerPrompt,
       logPath: reviewerLogPath,
       stderrLogPath: reviewerStderrLogPath,
       evalPath: evalResultPath,
