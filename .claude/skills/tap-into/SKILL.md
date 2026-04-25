@@ -48,6 +48,7 @@ The interview is Socratic — you probe, the user pushes back, both of you get s
 - **One question per turn.** Even when multiple decisions are orthogonal and you could batch them, don't. The user processes questions better serially, and each answer may reframe the next question in ways you didn't anticipate. If you catch yourself numbering questions Q1/Q2/Q3 in a single message, stop and send only the first. Exception: if a decision is a true either/or with two concrete options and picking wrong invalidates your next question, you may present the fork as a single question with labeled options — but that's one question, not a questionnaire.
 - **Intent.** What problem does this solve, and for whom? Often this is _not_ clear at the start — treat intent as something you and the user converge on through the discussion, not a gate the user has to pass before you'll engage. Probe gently, reflect back what you're hearing, and let the shape of the answer emerge.
 - **Boundaries.** What is explicitly _not_ in scope? What would be tempting to include but shouldn't be?
+- **Depth discipline** _(Skill: deep-modules — probe overlay)_. For every module the feature will create or significantly modify, probe: (a) What does it hide? A deep module has a simple interface over substantial hidden complexity — probe for that ratio. (b) How many entry points does it expose? **Hard cap: ≤3 entry points per module.** If a module candidate has more, split it now, before the contract is emitted. (c) What breaks if you delete it? A module that could be deleted without cascading rewrites is probably shallow — ask whether it's worth its own seam. (d) Where is the seam — in-process, IPC, network, file? Seam type determines where failures propagate. Depth answers go into `<feature:depth>` in SPECS.md.
 - **Shape.** What are the nouns? The verbs? Draw the graph (see `<diagrams>`). Where does data enter, where does it leave, what transforms in the middle?
 - **Stack alignment.** Given what the codebase already does, what's the natural home for this? New module vs. extension of existing one. What conventions must it follow?
 - **Failure modes.** What happens on bad input? Partial failure? Concurrent writes? Empty state? What's the worst plausible bug and how would we notice?
@@ -94,6 +95,8 @@ Before emitting artifacts, verify:
 - The `depends_on` graph has no cycles and the topo order makes sense.
 - Constraints that apply to the whole feature (conventions, forbidden paths, style rules) are captured at feature level.
 - Nothing important is only in your head. If it matters, it's in `SPECS.md` or `FEATURE_CONTRACT.json`.
+- **Depth mapping** _(Skill: deep-modules — convergence check)_. Every file listed in any task's `files` array must map to exactly one module entry in `<feature:depth>`. New files that don't yet have a module entry are a gap — either add the entry or merge the file into an existing module before emitting. A file appearing in two `<feature:depth>` entries is also a gap — pick the one that owns it, note the other as a caller.
+- **Entry-point cap.** Confirm every `<feature:depth>` module entry declares ≤3 entry points. Any module listing more must be split into two named modules before the contract is emitted.
 
 If any of these fail, go back to the interview.
 </convergence_check>
@@ -122,6 +125,21 @@ What in the existing codebase this builds on, extends, or replaces. Key file ref
 - Convention 2
 - Forbidden paths / patterns
   </feature:constraints>
+
+<feature:depth>
+
+## Module: <module-name>
+
+- **Path:** `<file-or-directory>` — one canonical path per module entry.
+- **Interface (entry points, ≤3):** List each public entry point with its signature and one-line purpose. Hard cap: if more than 3 are needed, split this into two modules before emitting.
+- **Hidden complexity:** What substantial logic, state, or coordination does this module hide from callers? The answer must be non-trivial — if nothing is hidden, the module is probably shallow and should be merged into its only caller.
+- **Deletion test:** What would callers have to duplicate or rewrite if this module were deleted? A module with no deletion cost is a shallow wrapper — justify it or remove it.
+- **Seam:** `in-process` | `IPC` | `network` | `file`. Where does the boundary sit and what does that mean for failure propagation?
+- **Justification:** One sentence connecting depth-as-leverage to this module: what expensive problem does the simple interface hide?
+
+_(Repeat the block above for every module the feature creates or significantly modifies. Every file in any task's `files` list must appear in exactly one module entry here.)_
+
+</feature:depth>
 
 <feature:shape>
 Narrative of the architecture. Include the ASCII diagram agreed on in the interview.

@@ -1,0 +1,225 @@
+{
+  "feature": "deep-module-paradigm",
+  "goal": "Enforce Ousterhout's deep-module discipline as a first-class paradigm across the tap-tool Ralph loop: tap-into probes for it, SPECS.md captures it as a rigorous obligation, Composer respects it via a Scout pre-step, Reviewer judges it, and a new Summarizer reports against it on terminal states.",
+  "description": "Add a rigorous <feature:depth> section to SPECS.md (no file rename — sibling features keep working). Add a user-scope deep-modules skill consumed by tap-into, Composer, Reviewer, and Summarizer. Composer launches a deep-module-aware Scout subagent (ephemeral report via stdin). ContextEngine extracts <feature:depth> and injects it as a {{depth_section}} placeholder for all three roles. New Summarizer role fires on AllDone | Exhausted to produce SUMMARY.md.",
+  "constraints": [
+    "Use depth-as-leverage (improve-codebase/LANGUAGE.md:18-19), not Ousterhout's line-count ratio.",
+    "Hard cap of 3 entry points per module — above this, split into a new module.",
+    "Every file in any task.files must map to exactly one <feature:depth> module entry.",
+    "SPECS.md remains the emitted spec artifact name (no rename). Sibling features without a <feature:depth> section continue to work via empty placeholder.",
+    "Surface decode/parse failures in the depth extractor (do not swallow); bubble up or fold into downstream failure messages.",
+    "Scout output is ephemeral — passed via stdin into Composer's prompt, no on-disk artifact.",
+    "Summarizer fires only on terminal AllDone and Exhausted; skip RateLimited and NoReadyTasks.",
+    "deep-modules skill lives at ~/.claude/skills/deep-modules/, not in the project repo.",
+    "Reuse the runRole helper (commit e9d49c4) for Summarizer dispatch — no parallel orchestration code.",
+    "Summarizer failure must not gate loop termination."
+  ],
+  "stories": [
+    {
+      "id": "S1",
+      "title": "tap-into: depth-aware interview + depth section in SPECS template",
+      "description": "Update the tap-into skill to drive the interview through a depth lens, adding a rigorous <feature:depth> schema to the SPECS.md template, a depth-probing angle in the discussion loop, the ≤3 entry-point hard cap, and a convergence check that every file in task.files maps to exactly one module entry. SPECS.md remains the emit filename.",
+      "tasks": [
+        {
+          "id": "S1.T1",
+          "title": "Extend tap-into SKILL.md with depth discipline",
+          "description": "In .claude/skills/tap-into/SKILL.md: add the <feature:depth> rigorous schema to the SPECS.md template, positioned above <feature:shape>; add a depth-probing angle to <discussion_loop>; encode the ≤3 entry-point hard cap and the 'every file in task.files maps to one module entry' convergence check; reference Skill: deep-modules in the discussion_loop and convergence_check sections. Do not change the emit filename — SPECS.md stays SPECS.md.",
+          "files": [
+            ".claude/skills/tap-into/SKILL.md"
+          ],
+          "depends_on": [],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        }
+      ]
+    },
+    {
+      "id": "S2",
+      "title": "deep-modules skill (user-scope)",
+      "description": "Create a new user-scope deep-modules skill that condenses LANGUAGE.md / DEEPENING.md / INTERFACE_DESIGN.md vocabulary into a single SKILL.md with a vocabulary core and three role overlays (probe / write / judge) consumed by tap-into, Composer, Reviewer, and Summarizer.",
+      "tasks": [
+        {
+          "id": "S2.T1",
+          "title": "Author ~/.claude/skills/deep-modules/SKILL.md",
+          "description": "Create ~/.claude/skills/deep-modules/SKILL.md with: (1) vocabulary core — module, interface, depth-as-leverage definition (explicitly rejecting Ousterhout's line ratio), seam, leverage, locality; (2) operational tests — deletion test, ≤3 entry-point hard cap, four-category seam taxonomy (in-process / local-substitutable / remote-owned / external) from DEEPENING.md, 'one adapter = hypothetical seam, two = real seam' rule; (3) three short role overlays: probe (tap-into interview prompts), write (Composer + Scout — survey nearby modules' interfaces and seams), judge (Reviewer + Summarizer — grade diff against <feature:depth>).",
+          "files": [
+            "~/.claude/skills/deep-modules/SKILL.md"
+          ],
+          "depends_on": [],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        }
+      ]
+    },
+    {
+      "id": "S3",
+      "title": "ContextEngine: depth extractor + placeholder injection",
+      "description": "In src/services/ContextEngine.ts, add the depth-section-extractor that pulls <feature:depth> out of SPECS.md, and inject it as the {{depth_section}} placeholder in renderComposer and renderReviewer. Default to empty if the section is absent; surface parse failures. No specs_path rename — keep current naming.",
+      "tasks": [
+        {
+          "id": "S3.T1",
+          "title": "extractDepthSection + placeholder injection in renderComposer/renderReviewer",
+          "description": "In src/services/ContextEngine.ts: add extractDepthSection(specsContent: string) returning the <feature:depth>...</feature:depth> inner content as Option<string>, failing on malformed XML. Inject as {{depth_section}} in renderComposer + renderReviewer Handlebars contexts (alongside existing specs_path). Tests in src/services/__tests__/ContextEngine.test.ts cover present / absent / malformed cases.",
+          "files": [
+            "src/services/ContextEngine.ts",
+            "src/services/__tests__/ContextEngine.test.ts"
+          ],
+          "depends_on": [],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        }
+      ]
+    },
+    {
+      "id": "S4",
+      "title": "Composer: Scout subagent + depth obligation",
+      "description": "Update Composer agent + COMPOSER_CONTRACT.md template to (a) require a deep-module-aware Scout pre-step (Explore subagent surveying nearest siblings and same-module files, ephemeral report ingested via stdin), and (b) read {{depth_section}} as the obligation surface for which modules its diff must respect.",
+      "tasks": [
+        {
+          "id": "S4.T1",
+          "title": "Composer.md: Scout pre-step + deep-modules skill",
+          "description": "In .claude/agents/Composer.md: add deep-modules to the skills: frontmatter list. Replace the loose 'mirror nearby code' instruction with a required pre-step: spawn an Explore subagent with a deep-module-aware prompt (surveying nearby modules' interfaces, seams, vocabulary), ingest its report, then write code that honors both the report and the <feature:depth> contract for the touched module(s).",
+          "files": [
+            ".claude/agents/Composer.md"
+          ],
+          "depends_on": [
+            "S2.T1"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S4.T2",
+          "title": "COMPOSER_CONTRACT.md: depth_section block",
+          "description": "In .tap/prompts/COMPOSER_CONTRACT.md: add a {{depth_section}} block (loud, separate section) that names the depth contract for the touched module(s); reinforce Scout-then-write order in the rendered instructions. Keep specs_path as it is.",
+          "files": [
+            ".tap/prompts/COMPOSER_CONTRACT.md"
+          ],
+          "depends_on": [
+            "S3.T1"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        }
+      ]
+    },
+    {
+      "id": "S5",
+      "title": "Reviewer: depth + scout-aware judgment",
+      "description": "Update Reviewer agent + REVIEWER_CONTRACT.md to judge the diff against the <feature:depth> contract for each touched module, and to FAIL iterations where Composer reinvented patterns a deep-module-aware Scout would have surfaced.",
+      "tasks": [
+        {
+          "id": "S5.T1",
+          "title": "Reviewer.md: depth + scout-aware checks",
+          "description": "In .claude/agents/Reviewer.md: add deep-modules to the skills: frontmatter list. Add explicit verdict checks: (a) for each module the diff touches, does the diff respect that module's <feature:depth> entry (interface cap, seam, hidden complexity)?; (b) does the diff reinvent functionality that nearby modules already provide (the kind of finding a Scout would surface)? Both can produce blocker-severity comments.",
+          "files": [
+            ".claude/agents/Reviewer.md"
+          ],
+          "depends_on": [
+            "S2.T1"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S5.T2",
+          "title": "REVIEWER_CONTRACT.md: depth_section block",
+          "description": "In .tap/prompts/REVIEWER_CONTRACT.md: add a {{depth_section}} block as the obligation surface to judge against; clarify in the rendered instructions that depth-section adherence is a verdict input. Keep specs_path as it is.",
+          "files": [
+            ".tap/prompts/REVIEWER_CONTRACT.md"
+          ],
+          "depends_on": [
+            "S3.T1"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        }
+      ]
+    },
+    {
+      "id": "S6",
+      "title": "Summarizer agent + LoopRunner terminal dispatch",
+      "description": "Add a Summarizer role parallel to Composer / Reviewer that fires on terminal AllDone and Exhausted to produce SUMMARY.md. Wire it through the existing runRole helper. Render via a new ContextEngine.renderSummarizer with {{depth_section}} so the narrative reports against the depth contract.",
+      "tasks": [
+        {
+          "id": "S6.T1",
+          "title": "Author Summarizer.md agent definition",
+          "description": "Create .claude/agents/Summarizer.md with frontmatter (model: sonnet, skills: [deep-modules], maxTurns: 30) and instructions: produce a narrative SUMMARY.md covering changes per story, failures (with task IDs and reasons), and an explicit assessment of whether the depth contract was honored or violated per module touched.",
+          "files": [
+            ".claude/agents/Summarizer.md"
+          ],
+          "depends_on": [
+            "S2.T1"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S6.T2",
+          "title": "Author SUMMARIZER_CONTRACT.md template",
+          "description": "Create .tap/prompts/SUMMARIZER_CONTRACT.md as a Handlebars template with placeholders: {{feature_description}}, {{specs_path}}, {{contract_path}}, {{depth_section}}, {{summary_path}}, {{git_diff}}, {{tasks_done}}, {{tasks_failed}}, {{stopped_reason}}. Instruct the agent to write a single SUMMARY.md to {{summary_path}} with sections: Changes (per story), Failures (per failed task with reason), Depth-Contract Assessment (per touched module).",
+          "files": [
+            ".tap/prompts/SUMMARIZER_CONTRACT.md"
+          ],
+          "depends_on": [],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S6.T3",
+          "title": "ContextEngine.renderSummarizer",
+          "description": "Add renderSummarizer(input: SummarizerRenderInput) to the ContextEngine interface (parallel shape to renderComposer / renderReviewer). Load SUMMARIZER_CONTRACT.md template at layer construction. Map camelCase input → snake_case Handlebars context. Inject {{depth_section}} via extractDepthSection. Resolve git_diff via shell-out at render time. Tests in src/services/__tests__/ContextEngine.test.ts cover the new renderer plus depth_section round-trip.",
+          "files": [
+            "src/services/ContextEngine.ts",
+            "src/services/__tests__/ContextEngine.test.ts"
+          ],
+          "depends_on": [
+            "S3.T1",
+            "S6.T2"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S6.T4",
+          "title": "LoopRunnerLive: terminalSummaryDispatch helper",
+          "description": "In src/services/LoopRunner/LoopRunnerLive.ts: extract a dispatchTerminalSummary(summary, ctx) helper invoked once after the terminal-state decision. Predicate on summary.stoppedReason._tag — dispatch Summarizer via runRole iff AllDone or Exhausted, no-op otherwise. Build SummarizerRenderInput from feature contract + LoopSummary + git diff. Persist the agent output to .tap/features/<slug>/SUMMARY.md. Absorb dispatch failures (log, do not propagate) so terminal status stays authoritative.",
+          "files": [
+            "src/services/LoopRunner/LoopRunnerLive.ts"
+          ],
+          "depends_on": [
+            "S6.T1",
+            "S6.T3"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S6.T5",
+          "title": "LoopRunnerLive tests: terminal dispatch matrix",
+          "description": "In src/services/LoopRunner/__tests__/LoopRunnerLive.test.ts: add tests verifying dispatchTerminalSummary fires Summarizer on AllDone and Exhausted, skips on RateLimited and NoReadyTasks. Verify SUMMARY.md is written to the expected path on dispatch. Verify Summarizer failure is absorbed and terminal status is unchanged.",
+          "files": [
+            "src/services/LoopRunner/__tests__/LoopRunnerLive.test.ts"
+          ],
+          "depends_on": [
+            "S6.T4"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        }
+      ]
+    }
+  ]
+}
