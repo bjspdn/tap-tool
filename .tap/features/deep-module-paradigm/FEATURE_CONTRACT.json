@@ -215,8 +215,8 @@
           "depends_on": [
             "S6.T4"
           ],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         }
       ]
