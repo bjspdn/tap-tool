@@ -170,8 +170,8 @@
             ".tap/prompts/SUMMARIZER_CONTRACT.md"
           ],
           "depends_on": [],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         },
         {
