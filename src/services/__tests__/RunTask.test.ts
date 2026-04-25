@@ -24,11 +24,8 @@ const TMP_ROOT = brand<"AbsolutePath">(
 const makeTask = (overrides: Partial<Task> = {}): Task => ({
   id: brand<"TaskId">("S6.T2"),
   title: "Integration test for runTask",
+  description: "Integration test for runTask orchestration service.",
   files: [brand<"AbsolutePath">("src/services/__tests__/RunTask.test.ts")],
-  acceptance: [
-    "PASS fixture yields TaskResult with verdict=PASS",
-    "FAIL fixture yields TaskResult with verdict=FAIL and two issues",
-  ],
   depends_on: [],
   status: "in_progress",
   attempts: 1,
@@ -39,6 +36,7 @@ const makeTask = (overrides: Partial<Task> = {}): Task => ({
 const makeFeature = (overrides: Partial<Feature> = {}): Feature => ({
   feature: "composer-reviewer",
   goal: "Deliver the Composer + Reviewer sub-agent vertical slice.",
+  description: "Delivers the Composer + Reviewer sub-agent vertical slice.",
   constraints: [
     "Services are Effect Context.Tag + Layer pairs.",
     "No `any`, no `as unknown as`.",

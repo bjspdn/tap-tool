@@ -236,7 +236,7 @@ export const LoopRunnerLive: Layer.Layer<LoopRunner, never, never> = Layer.succe
             `  1. Edit .tap/features/${feature.feature}/FEATURE_CONTRACT.json`,
             `  2. For each failed task, set "status": "pending" and "attempts": 0`,
             `     (or bump "maxAttempts" if you want more retries without a reset)`,
-            `  3. Optionally amend the task's "acceptance" array with what the last`,
+            `  3. Optionally tighten the task's "description" based on what the last`,
             `     EVAL_RESULT.md flagged — see eval/archive/<taskId>/`,
             `  4. Re-run: bun run scripts/bootstrap.ts ${feature.feature}`,
           ].join("\n");

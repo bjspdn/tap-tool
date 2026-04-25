@@ -21,16 +21,6 @@
     {
       "id": "S1",
       "title": "Dual-form criterion schema + migrate all existing contracts",
-      "acceptance": [
-        {
-          "behavioral": "FeatureContract.ts Schema accepts dual-form criteria in final state (strict); all three existing FEATURE_CONTRACT.json files under .tap/features/ decode under the strict schema; bun test and bunx tsc --noEmit exit 0 after every S1 task",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "Some",
-            "value": "AcceptanceCriterionSchema, FeatureContract.ts"
-          }
-        }
-      ],
       "tasks": [
         {
           "id": "S1.T1",
@@ -39,39 +29,6 @@
             "src/services/FeatureContract.ts",
             "src/types/Contract.d.ts",
             "src/services/__tests__/FeatureContract.test.ts"
-          ],
-          "acceptance": [
-            {
-              "behavioral": "src/services/FeatureContract.ts declares AcceptanceCriterionSchema = Schema.Union(Schema.String, Schema.Struct({ behavioral: Schema.String, mechanism: Schema.OptionFromNullOr(Schema.String) })) and TaskSchema.acceptance and StorySchema.acceptance use it in place of Schema.Array(Schema.String)",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "AcceptanceCriterionSchema = Schema.Union(Schema.String, Schema.Struct({ behavioral: Schema.String, mechanism: Schema.OptionFromNullOr(Schema.String) }))"
-              }
-            },
-            {
-              "behavioral": "src/types/Contract.d.ts Task and Story types have their acceptance field typed as ReadonlyArray<string | { readonly behavioral: string; readonly mechanism: Option<string> }> and the _FeatureTypeMatches assertion still compiles",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "ReadonlyArray<string | { readonly behavioral: string; readonly mechanism: Option<string> }>"
-              }
-            },
-            {
-              "behavioral": "FeatureContract.test.ts contains three new tests: (1) a legacy single-string criterion decodes without error; (2) a dual-form struct with mechanism: Option.some(...) decodes without error; (3) a dual-form struct with mechanism: Option.none() decodes without error",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "Option.some(...), Option.none()"
-              }
-            },
-            {
-              "behavioral": "bun test exits 0; bunx tsc --noEmit exits 0; all three existing FEATURE_CONTRACT.json files under .tap/features/ load without error under the new lenient schema",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
           ],
           "depends_on": [],
           "status": "done",
@@ -86,44 +43,6 @@
             ".tap/features/composer-reviewer/FEATURE_CONTRACT.json",
             ".tap/features/loop-runner/FEATURE_CONTRACT.json",
             ".tap/features/contract-satisfiability/FEATURE_CONTRACT.json"
-          ],
-          "acceptance": [
-            {
-              "behavioral": "every acceptance criterion in every task and story of all three FEATURE_CONTRACT.json files is an object with a behavioral field and a mechanism field (no plain strings remain)",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "the behavioral field for each criterion names a concrete observation: a file that must exist, a test that must pass, a command whose output must contain X, or a type whose shape must be Y; no behavioral field contains text like 'works correctly'",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "the mechanism field contains every concrete API name, type construction, file path, import form, or specific tool invocation that was present in the original single-string criterion; when the original criterion contained no specific mechanism, mechanism is null",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "all non-acceptance fields of every task (id, title, files, depends_on, status, attempts, maxAttempts) are preserved bit-for-bit; the status and attempts fields of the running contract (.tap/features/contract-satisfiability/FEATURE_CONTRACT.json) reflect the in-flight execution state at the moment of migration",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "all three migrated files decode without error under the S1.T1 lenient AcceptanceCriterionSchema; bun test exits 0; bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "AcceptanceCriterionSchema"
-              }
-            }
           ],
           "depends_on": [
             "S1.T1"
@@ -141,31 +60,6 @@
             "src/services/__tests__/FeatureContract.test.ts",
             "src/services/LoopRunner/__tests__/LoopRunner.smoke.test.ts"
           ],
-          "acceptance": [
-            {
-              "behavioral": "AcceptanceCriterionSchema is redefined as Schema.Struct({ behavioral: Schema.String, mechanism: Schema.Option(Schema.String) }) with the Schema.Union wrapper removed so legacy string criteria no longer decode",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "AcceptanceCriterionSchema = Schema.Struct({ behavioral: Schema.String, mechanism: Schema.Option(Schema.String) })"
-              }
-            },
-            {
-              "behavioral": "FeatureContract.test.ts is updated so the legacy-string-decodes test from S1.T1 is replaced by a test asserting that a legacy-string criterion fails decoding with a ContractSchemaFailed error; the dual-form tests from S1.T1 still pass",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "ContractSchemaFailed"
-              }
-            },
-            {
-              "behavioral": "all three migrated FEATURE_CONTRACT.json files decode without error under the strict schema; bun test exits 0; bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
-          ],
           "depends_on": [
             "S1.T2"
           ],
@@ -180,55 +74,12 @@
     {
       "id": "S2",
       "title": "Author .tap/prompts/OPERATING_CONTRACT.md",
-      "acceptance": [
-        {
-          "behavioral": ".tap/prompts/OPERATING_CONTRACT.md exists on disk with a shared-rules section and a complete @contract-deviation marker wire-protocol spec section",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "Some",
-            "value": ".tap/prompts/OPERATING_CONTRACT.md"
-          }
-        }
-      ],
       "tasks": [
         {
           "id": "S2.T1",
           "title": "Author OPERATING_CONTRACT.md with shared rules and marker format",
           "files": [
             ".tap/prompts/OPERATING_CONTRACT.md"
-          ],
-          "acceptance": [
-            {
-              "behavioral": ".tap/prompts/OPERATING_CONTRACT.md exists with two top-level sections: '## Shared rules' and '## Substitution marker (@contract-deviation) wire protocol'",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "## Shared rules, ## Substitution marker (@contract-deviation) wire protocol"
-              }
-            },
-            {
-              "behavioral": "the shared-rules section enumerates at minimum: never pass --no-verify or any hook-skipping flag; never run git commit, git push, or any VCS-mutation command unless the harness owns it; every file edited must appear in the task's files list; Reviewer never edits source files",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "--no-verify, git commit, git push"
-              }
-            },
-            {
-              "behavioral": "the marker section states verbatim the exact JSON shape Composer emits at a substitution site, the exact fieldset (criterion_ref, invalidity, evidence, substitution, behavioral_preserved_ref), the exact set of legal invalidity values (tsc-error, criterion-conflict, global-constraint-conflict), a fully worked example marker for the S5.T1 Schema.brand case, and a sentence stating any deviation from the JSON shape is a Reviewer FAIL",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "criterion_ref, invalidity, evidence, substitution, behavioral_preserved_ref; tsc-error | criterion-conflict | global-constraint-conflict"
-              }
-            },
-            {
-              "behavioral": "the file uses positive-framing language throughout — 'your obligation is X' and 'emit a marker when Y' rather than 'you must not do Z'",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
           ],
           "depends_on": [],
           "status": "pending",
@@ -242,16 +93,6 @@
     {
       "id": "S3",
       "title": "ContextEngine render path + templates + loader",
-      "acceptance": [
-        {
-          "behavioral": "both Composer and Reviewer rendered prompts contain the OPERATING_CONTRACT.md content verbatim and any VALIDATION_RESULT warnings when present; bun test and bunx tsc --noEmit exit 0",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "Some",
-            "value": "ContextEngine, OPERATING_CONTRACT.md, VALIDATION_RESULT.md"
-          }
-        }
-      ],
       "tasks": [
         {
           "id": "S3.T1",
@@ -262,38 +103,6 @@
             ".tap/prompts/COMPOSER_CONTRACT.md",
             ".tap/prompts/REVIEWER_CONTRACT.md",
             "src/services/__tests__/ContextEngine.test.ts"
-          ],
-          "acceptance": [
-            {
-              "behavioral": "toComposerContext and toReviewerContext each gain two new context fields: operating_contract: string and validation_warnings: ReadonlyArray<{ readonly criterion_ref: string; readonly category: string; readonly evidence: string; readonly suggested_fix: string }>; the ambient ContextEngine types reflect these additions",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "operating_contract: string, validation_warnings: ReadonlyArray<{ criterion_ref, category, evidence, suggested_fix }>"
-              }
-            },
-            {
-              "behavioral": "COMPOSER_CONTRACT.md and REVIEWER_CONTRACT.md each contain a section that inlines {{{operating_contract}}} verbatim and a section with {{#each validation_warnings}}...{{/each}} that is omitted when the array is empty",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "{{{operating_contract}}}, {{#each validation_warnings}}...{{/each}}"
-              }
-            },
-            {
-              "behavioral": "ContextEngine.test.ts contains tests verifying: (1) operating_contract text appears verbatim in the rendered output; (2) each warning's fields appear in the rendered output when warnings is non-empty; (3) the warnings section is absent from the rendered output when warnings is empty",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "bun test exits 0; bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
           ],
           "depends_on": [
             "S1.T3",
@@ -311,39 +120,6 @@
             "src/services/RunTask.ts",
             "src/services/__tests__/RunTask.test.ts"
           ],
-          "acceptance": [
-            {
-              "behavioral": "RunTask.ts reads .tap/prompts/OPERATING_CONTRACT.md via FileSystem.FileSystem at dispatch time and passes the string contents into both engine.renderComposer and engine.renderReviewer; a missing OPERATING_CONTRACT.md produces a tagged FilesystemError",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": ".tap/prompts/OPERATING_CONTRACT.md, FilesystemError"
-              }
-            },
-            {
-              "behavioral": "RunTask.ts reads <featureRoot>/VALIDATION_RESULT.md when present, parses warning-severity findings, and threads them as validation_warnings into both render calls; blockers from VALIDATION_RESULT.md are ignored at this stage",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "<featureRoot>/VALIDATION_RESULT.md, severity === 'warning'"
-              }
-            },
-            {
-              "behavioral": "RunTask.test.ts contains tests covering: (1) warnings are threaded when VALIDATION_RESULT.md exists with warning entries; (2) validation_warnings is an empty array when VALIDATION_RESULT.md is absent; (3) OPERATING_CONTRACT.md contents appear in both rendered prompts",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "validation_warnings"
-              }
-            },
-            {
-              "behavioral": "bun test exits 0; bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
-          ],
           "depends_on": [
             "S3.T1"
           ],
@@ -358,47 +134,12 @@
     {
       "id": "S4",
       "title": "Composer skill update — behavioral obligation + substitution permission",
-      "acceptance": [
-        {
-          "behavioral": ".claude/agents/Composer.md contains a behavioral-obligation section stating the Composer's primary obligation in positive framing and references OPERATING_CONTRACT.md as the single source of the marker format",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "Some",
-            "value": ".claude/agents/Composer.md, .tap/prompts/OPERATING_CONTRACT.md"
-          }
-        }
-      ],
       "tasks": [
         {
           "id": "S4.T1",
           "title": "Update .claude/agents/Composer.md with behavioral-obligation and substitution sections",
           "files": [
             ".claude/agents/Composer.md"
-          ],
-          "acceptance": [
-            {
-              "behavioral": "Composer.md contains a <section name='behavioral-obligation'> that states in positive framing that the Composer's primary obligation for each criterion is to satisfy its behavioral field and that the mechanism field is the suggested implementation path to use when it works",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "<section name='behavioral-obligation'>"
-              }
-            },
-            {
-              "behavioral": "Composer.md contains a <section name='substitution'> that states: (1) the three conditions under which a mechanism substitution is permitted (tsc-error, criterion-conflict, global-constraint-conflict); (2) that a substitution requires emitting a @contract-deviation JSON block-comment at the substitution site; (3) that the marker format is specified in .tap/prompts/OPERATING_CONTRACT.md and must be followed byte-for-byte; (4) that substitution does not release the Composer from the behavioral field obligation",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "<section name='substitution'>, @contract-deviation, .tap/prompts/OPERATING_CONTRACT.md"
-              }
-            },
-            {
-              "behavioral": "Composer.md does not contain any negative-phrased prohibition like 'do not touch the behavioral field'; all rules are framed as 'your job is X' or 'emit a marker when Y'",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
           ],
           "depends_on": [
             "S2.T1"
@@ -414,56 +155,12 @@
     {
       "id": "S5",
       "title": "Reviewer skill update — dual-form per-criterion check + marker reproduction",
-      "acceptance": [
-        {
-          "behavioral": ".claude/skills/code-review/SKILL.md classifies each criterion's behavioral and mechanism fields independently and contains a marker-validation subsection that reproduces any @contract-deviation marker before accepting it",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "Some",
-            "value": ".claude/skills/code-review/SKILL.md, @contract-deviation"
-          }
-        }
-      ],
       "tasks": [
         {
           "id": "S5.T1",
           "title": "Update .claude/skills/code-review/SKILL.md with dual-form classification + marker-validation subsection",
           "files": [
             ".claude/skills/code-review/SKILL.md"
-          ],
-          "acceptance": [
-            {
-              "behavioral": "the <step-1-per-criterion-classification> subsection instructs the Reviewer to classify each criterion's behavioral field and mechanism field independently (behavioral-Satisfied, mechanism-Satisfied, mechanism-Satisfied-via-marker, or Not-Satisfied) with the behavioral field validated first",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "<step-1-per-criterion-classification>, behavioral-Satisfied, mechanism-Satisfied, mechanism-Satisfied-via-marker"
-              }
-            },
-            {
-              "behavioral": "a <step-1a-marker-validation> subsection instructs the Reviewer to: (1) grep source for '@contract-deviation' markers; (2) parse each marker's JSON body; (3) for invalidity: tsc-error — write the prescribed mechanism into a scratch file at .tap/tmp/marker-repro-<uuid>/ and run bunx tsc --noEmit to confirm the error matches the evidence field; (4) for invalidity: criterion-conflict — cite both criterion texts verbatim and confirm the contradiction is logically valid; (5) for invalidity: global-constraint-conflict — cite the specific constraint contradicted; (6) confirm behavioral_preserved_ref criterion has its behavioral field Satisfied",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "<step-1a-marker-validation>, grep '@contract-deviation', .tap/tmp/marker-repro-<uuid>/, bunx tsc --noEmit"
-              }
-            },
-            {
-              "behavioral": "the <step-4-verdict> subsection states that a mechanism field classified as Satisfied-via-marker (marker reproduced successfully, behavioral_preserved_ref confirmed) counts as Satisfied for PASS purposes; a marker whose reproduction shows the literal mechanism works produces a FAIL issue with acceptance_failed: '<criterion-ref>.mechanism', problem: 'false invalidity claim — prescribed mechanism reproduces without the claimed failure'",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "acceptance_failed: '<criterion-ref>.mechanism', problem: 'false invalidity claim'"
-              }
-            },
-            {
-              "behavioral": "the skill's issue-writing section includes a marker_validation_failed category for the false-invalidity-claim FAIL cases",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "marker_validation_failed"
-              }
-            }
           ],
           "depends_on": [
             "S2.T1",
@@ -480,16 +177,6 @@
     {
       "id": "S6",
       "title": "Validator — services + agent + skill",
-      "acceptance": [
-        {
-          "behavioral": "a Validator service module exists under src/services/Validator/ with deterministic check functions; a .claude/agents/Validator.md agent and .claude/skills/contract-validation/SKILL.md skill exist on disk",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "Some",
-            "value": "src/services/Validator/, .claude/agents/Validator.md, .claude/skills/contract-validation/SKILL.md"
-          }
-        }
-      ],
       "tasks": [
         {
           "id": "S6.T1",
@@ -503,78 +190,6 @@
             "src/services/Validator/runChecks.ts",
             "src/services/Validator/__tests__/checks.test.ts",
             "scripts/validate-contract.ts"
-          ],
-          "acceptance": [
-            {
-              "behavioral": "src/services/Validator/types.ts declares the ambient ValidationFinding type with fields criterion_ref: string, severity: 'blocker' | 'warning', category: 'structural' | 'path-reality' | 'contradiction' | 'testability' | 'mechanism-viability', evidence: string, suggested_fix: string",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "ValidationFinding, severity: 'blocker' | 'warning', category: 'structural' | 'path-reality' | 'contradiction' | 'testability' | 'mechanism-viability'"
-              }
-            },
-            {
-              "behavioral": "src/services/Validator/checks/structural.ts exports checkStructural(feature: Feature): Effect.Effect<ReadonlyArray<ValidationFinding>, never, never> that returns blocker findings for dep cycles (reusing the findCycle helper from FeatureContract.ts), dangling depends_on ids, and missing/empty behavioral fields",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "checkStructural(feature: Feature): Effect.Effect<ReadonlyArray<ValidationFinding>, never, never>, findCycle from FeatureContract.ts"
-              }
-            },
-            {
-              "behavioral": "src/services/Validator/checks/pathReality.ts exports checkPathReality(feature: Feature, repoRoot: AbsolutePath): Effect.Effect<ReadonlyArray<ValidationFinding>, never, CommandExecutor.CommandExecutor> that runs git ls-files --error-unmatch for paths in criteria text claimed as non-repo paths and produces a blocker finding 'claimed non-repo path is tracked' when a match is found",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "checkPathReality, git ls-files --error-unmatch, CommandExecutor.CommandExecutor"
-              }
-            },
-            {
-              "behavioral": "src/services/Validator/checks/testability.ts exports checkTestability(feature: Feature): Effect.Effect<ReadonlyArray<ValidationFinding>, never, never> that flags behavioral fields not naming a file path, command invocation, test name, type identifier, or regex-matchable output shape, with warning severity",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "checkTestability, warning severity"
-              }
-            },
-            {
-              "behavioral": "src/services/Validator/checks/contradiction.ts exports checkContradictions(feature: Feature): Effect.Effect<ReadonlyArray<ValidationFinding>, never, never> that runs a pairwise text scan across criteria within the same task for direct contradictions, with blocker severity",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "checkContradictions, blocker severity"
-              }
-            },
-            {
-              "behavioral": "src/services/Validator/runChecks.ts exports runAllStackAgnosticChecks(feature: Feature, repoRoot: AbsolutePath): Effect.Effect<ReadonlyArray<ValidationFinding>, never, CommandExecutor.CommandExecutor> composing the four check functions",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "runAllStackAgnosticChecks(feature: Feature, repoRoot: AbsolutePath): Effect.Effect<ReadonlyArray<ValidationFinding>, never, CommandExecutor.CommandExecutor>"
-              }
-            },
-            {
-              "behavioral": "scripts/validate-contract.ts is a Bun-runnable CLI that accepts contract path and repoRoot as argv, loads the contract via FeatureContract.load, runs runAllStackAgnosticChecks, and prints a VALIDATION_RESULT.md block to stdout with verdict CLEAN or ISSUES and findings in YAML; exits 0 for CLEAN or warning-only, exits 1 for blocker findings",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "scripts/validate-contract.ts, FeatureContract.load, runAllStackAgnosticChecks, exit code 0/1"
-              }
-            },
-            {
-              "behavioral": "src/services/Validator/__tests__/checks.test.ts contains unit tests for each check function: one fixture per finding category plus a clean fixture that produces no findings; bun test exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
           ],
           "depends_on": [
             "S1.T3"
@@ -593,48 +208,6 @@
             "src/services/Validator/__tests__/mechanismViability.test.ts",
             "src/services/Validator/runChecks.ts"
           ],
-          "acceptance": [
-            {
-              "behavioral": "src/services/Validator/stackDetect.ts exports detectStack(repoRoot: AbsolutePath): Effect.Effect<'typescript' | 'rust' | 'unknown', never, FileSystem.FileSystem> that returns 'typescript' if package.json exists at repoRoot, 'rust' if Cargo.toml exists, 'unknown' otherwise, with 'typescript' taking precedence when multiple manifests exist",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "detectStack(repoRoot: AbsolutePath): Effect.Effect<'typescript' | 'rust' | 'unknown', never, FileSystem.FileSystem>"
-              }
-            },
-            {
-              "behavioral": "src/services/Validator/checks/mechanismViability.ts exports checkMechanismViability(feature: Feature, repoRoot: AbsolutePath, stack: 'typescript' | 'rust' | 'unknown'): Effect.Effect<ReadonlyArray<ValidationFinding>, never, CommandExecutor.CommandExecutor | FileSystem.FileSystem>; for 'typescript' writes each mechanism's API construction to a tmp .ts file under .tap/tmp/mechviab-<uuid>/ and runs bunx tsc --noEmit producing blocker findings for errors; for 'unknown' emits a single warning per criterion with mechanism",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "checkMechanismViability, .tap/tmp/mechviab-<uuid>/, bunx tsc --noEmit"
-              }
-            },
-            {
-              "behavioral": "src/services/Validator/runChecks.ts gains a new runAllChecks(feature, repoRoot) that calls detectStack then composes runAllStackAgnosticChecks with checkMechanismViability on the detected stack",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "runAllChecks, detectStack, checkMechanismViability"
-              }
-            },
-            {
-              "behavioral": "src/services/Validator/__tests__/mechanismViability.test.ts contains: a fixture with the S5.T1 Schema.brand case producing a blocker finding when stack === 'typescript'; a fixture with a clean mechanism producing no finding; a fixture under stack === 'unknown' producing warning findings only",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "Schema.brand, stack === 'typescript', stack === 'unknown'"
-              }
-            },
-            {
-              "behavioral": "scripts/validate-contract.ts is updated to call runAllChecks covering mechanism-viability; bun test exits 0; bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "runAllChecks"
-              }
-            }
-          ],
           "depends_on": [
             "S6.T1"
           ],
@@ -650,46 +223,6 @@
             ".claude/agents/Validator.md",
             ".claude/skills/contract-validation/SKILL.md"
           ],
-          "acceptance": [
-            {
-              "behavioral": ".claude/agents/Validator.md exists with frontmatter containing model: opus, skills: [contract-validation], tools: [Read, Glob, Grep, Bash, Write]; the frontmatter description names the role as 'independent contract-authoring-time evaluator for tap-into feature contracts'",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": ".claude/agents/Validator.md, model: opus, skills: [contract-validation], tools: [Read, Glob, Grep, Bash, Write]"
-              }
-            },
-            {
-              "behavioral": ".claude/skills/contract-validation/SKILL.md exists with a <trigger> section activating when the session is a Validator sub-agent with a draft contract path in its rendered prompt",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": ".claude/skills/contract-validation/SKILL.md, <trigger>"
-              }
-            },
-            {
-              "behavioral": "the skill's methodology section instructs the agent to: (1) run bun run scripts/validate-contract.ts <draft-path> <repo-root> and capture stdout; (2) parse the YAML findings block; (3) add prose-level observations for ambiguities the deterministic script could not catch; (4) write consolidated findings to eval_path as VALIDATION_RESULT.md with <validation:verdict> and <validation:findings> blocks",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "bun run scripts/validate-contract.ts, <validation:verdict>, <validation:findings>"
-              }
-            },
-            {
-              "behavioral": "the skill states that deterministic findings from the CLI script are authoritative and cannot be overridden by agent prose judgment (prose adds warnings only, never downgrades blockers)",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
-          ],
           "depends_on": [
             "S6.T2"
           ],
@@ -704,56 +237,12 @@
     {
       "id": "S7",
       "title": "tap-into integration — <validation_gate> section",
-      "acceptance": [
-        {
-          "behavioral": ".claude/skills/tap-into/SKILL.md contains a <validation_gate> section that drives a draft → Validator → user-fix-or-accept → emit loop so a contract with blocker findings is never emitted",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "Some",
-            "value": ".claude/skills/tap-into/SKILL.md, <validation_gate>"
-          }
-        }
-      ],
       "tasks": [
         {
           "id": "S7.T1",
           "title": "Add <validation_gate> section to tap-into SKILL.md after <convergence_check>",
           "files": [
             ".claude/skills/tap-into/SKILL.md"
-          ],
-          "acceptance": [
-            {
-              "behavioral": "a <validation_gate> section appears in .claude/skills/tap-into/SKILL.md immediately after <convergence_check> and before <output_contract>",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "<validation_gate>, <convergence_check>, <output_contract>"
-              }
-            },
-            {
-              "behavioral": "the <validation_gate> section instructs tap-into to: (1) write the draft contract to .tap/tmp/tapinto-draft-<uuid>/FEATURE_CONTRACT.json; (2) invoke Agent(subagent_type='Validator', ...) passing the draft path and an eval_path pointing to .tap/tmp/tapinto-draft-<uuid>/VALIDATION_RESULT.md; (3) read the VALIDATION_RESULT.md the Validator produces; (4) surface findings to the user as a categorized report; (5) on any blocker finding refuse to emit and loop back into <discussion_loop>; (6) on warning-only findings confirm with the user whether to proceed; (7) on CLEAN verdict proceed to <output_contract>",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "Agent(subagent_type='Validator'), .tap/tmp/tapinto-draft-<uuid>/FEATURE_CONTRACT.json, .tap/tmp/tapinto-draft-<uuid>/VALIDATION_RESULT.md"
-              }
-            },
-            {
-              "behavioral": "the <validation_gate> section instructs tap-into to copy the final VALIDATION_RESULT.md alongside the emitted SPECS.md and FEATURE_CONTRACT.json under .tap/features/<slug>/",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": ".tap/features/<slug>/"
-              }
-            },
-            {
-              "behavioral": "the existing <convergence_check> section's ambiguity-sweep bullet is updated to note that the validation_gate is the automated backstop for ambiguities the conversational check missed",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "<convergence_check>"
-              }
-            }
           ],
           "depends_on": [
             "S6.T3"
@@ -769,16 +258,6 @@
     {
       "id": "S8",
       "title": "End-to-end smoke tests",
-      "acceptance": [
-        {
-          "behavioral": "bun test src/services/Validator/__tests__/smoke.test.ts exits 0: a buggy fixture contract produces at least one finding per finding category, a clean fixture produces zero findings",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "Some",
-            "value": "scripts/validate-contract.ts, smoke.test.ts"
-          }
-        }
-      ],
       "tasks": [
         {
           "id": "S8.T1",
@@ -787,38 +266,6 @@
             "src/services/Validator/__tests__/smoke.test.ts",
             "src/services/Validator/__tests__/fixtures/buggy-contract.json",
             "src/services/Validator/__tests__/fixtures/clean-contract.json"
-          ],
-          "acceptance": [
-            {
-              "behavioral": "src/services/Validator/__tests__/fixtures/buggy-contract.json is a hand-crafted fixture containing at least one issue in each category: (1) a dep cycle between two tasks; (2) a dangling depends_on reference to a non-existent task id; (3) a criterion whose mechanism prescribes Schema.String.pipe(Schema.brand('FakeId')) triggering a TS mechanism-viability blocker; (4) a criterion whose text claims a .tap/tmp/ non-repo fixture path triggering a path-reality blocker; (5) a criterion with a behavioral field 'feature works correctly' triggering a testability warning",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "Schema.String.pipe(Schema.brand('FakeId')), .tap/tmp/ path, 'feature works correctly'"
-              }
-            },
-            {
-              "behavioral": "src/services/Validator/__tests__/fixtures/clean-contract.json is a minimal well-formed dual-form contract that produces zero findings when validated",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "src/services/Validator/__tests__/smoke.test.ts spawns scripts/validate-contract.ts as a subprocess against each fixture, captures stdout and exit code, parses the YAML findings block, and asserts: buggy-contract produces at least one finding per the five categories above with correct severities; clean-contract produces zero findings and exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "scripts/validate-contract.ts subprocess, YAML findings block"
-              }
-            },
-            {
-              "behavioral": "bun test src/services/Validator/__tests__/smoke.test.ts exits 0; full bun test suite still exits 0; bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
           ],
           "depends_on": [
             "S6.T2",

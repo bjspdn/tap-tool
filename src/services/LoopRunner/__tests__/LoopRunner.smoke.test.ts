@@ -82,8 +82,8 @@ const smokeLayer = Layer.mergeAll(
 const makeTask = (id: string, depends_on: string[] = []): Task => ({
   id: brand<"TaskId">(id),
   title: `Task ${id}`,
+  description: `Description for smoke-test task ${id}`,
   files: [],
-  acceptance: [{ behavioral: "Smoke test acceptance criterion.", mechanism: Option.none() }],
   depends_on: depends_on.map((d) => brand<"TaskId">(d)),
   status: "pending",
   attempts: 0,
@@ -93,12 +93,13 @@ const makeTask = (id: string, depends_on: string[] = []): Task => ({
 const makeFeature = (tasks: Task[]): Feature => ({
   feature: "smoke-test",
   goal: "Smoke test feature goal.",
+  description: "Smoke test feature description.",
   constraints: ["No real constraints."],
   stories: [
     {
       id: brand<"StoryId">("S1"),
       title: "Story 1",
-      acceptance: [],
+      description: "Smoke test story description.",
       tasks,
     },
   ],

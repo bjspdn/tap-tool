@@ -3,9 +3,9 @@ import { Effect, Exit, Layer, Option, Schema } from "effect";
 import { FileSystem } from "@effect/platform";
 import { BunContext } from "@effect/platform-bun";
 import {
-  AcceptanceCriterionSchema,
   FeatureContract,
   FeatureContractLive,
+  TaskSchema,
   nextReady,
   markStatus,
   incrementAttempt,
@@ -53,8 +53,8 @@ const makeTask = (
 ): Task => ({
   id: brand<"TaskId">(id),
   title: `Task ${id}`,
+  description: `Description for task ${id}`,
   files: [],
-  acceptance: [],
   depends_on: depends_on.map((d) => brand<"TaskId">(d)),
   status,
   attempts,
@@ -64,12 +64,13 @@ const makeTask = (
 const makeFeature = (tasks: Task[]): Feature => ({
   feature: "test",
   goal: "test goal",
+  description: "test feature description",
   constraints: [],
   stories: [
     {
       id: brand<"StoryId">("S1"),
       title: "Story 1",
-      acceptance: [],
+      description: "story one description",
       tasks,
     },
   ],
@@ -93,10 +94,6 @@ describe("FeatureContract", () => {
 
   describe("load: production composer-reviewer contract", () => {
     test("parses with correct story and task counts and branded ids", async () => {
-      // Contract-reality substitution: acceptance criterion states 19 total tasks, but
-      // .tap/features/composer-reviewer/FEATURE_CONTRACT.json on disk has 22 tasks
-      // (S2 grew from 5 to 7 tasks after the spec was authored; spec count was stale).
-      // Behavioral requirement — assert the real on-disk count — is fully satisfied.
       const contractPath = brand<"AbsolutePath">(
         `.tap/features/composer-reviewer/FEATURE_CONTRACT.json`,
       );
@@ -156,7 +153,7 @@ describe("FeatureContract", () => {
 
     test("well-formed JSON missing stories → ContractSchemaFailed with non-empty issues", async () => {
       const p = brand<"AbsolutePath">(`${tmpDir}/no-stories.json`);
-      const noStories = { feature: "x", goal: "g", constraints: [] };
+      const noStories = { feature: "x", goal: "g", description: "d", constraints: [] };
 
       await Effect.runPromise(
         Effect.flatMap(FileSystem.FileSystem, (fs) =>
@@ -191,18 +188,19 @@ describe("FeatureContract", () => {
       const cycleContract = {
         feature: "cycle-test",
         goal: "g",
+        description: "cycle test feature",
         constraints: [],
         stories: [
           {
             id: "S1",
             title: "Story",
-            acceptance: [],
+            description: "story desc",
             tasks: [
               {
                 id: "A",
                 title: "Task A",
+                description: "task a desc",
                 files: [],
-                acceptance: [],
                 depends_on: ["B"],
                 status: "pending",
                 attempts: 0,
@@ -211,8 +209,8 @@ describe("FeatureContract", () => {
               {
                 id: "B",
                 title: "Task B",
+                description: "task b desc",
                 files: [],
-                acceptance: [],
                 depends_on: ["A"],
                 status: "pending",
                 attempts: 0,
@@ -264,18 +262,19 @@ describe("FeatureContract", () => {
       const original: Feature = {
         feature: "roundtrip-feature",
         goal: "roundtrip goal",
+        description: "roundtrip feature description",
         constraints: ["constraint 1", "constraint 2"],
         stories: [
           {
             id: brand<"StoryId">("S1"),
             title: "Story 1",
-            acceptance: [{ behavioral: "acc 1", mechanism: Option.none() }],
+            description: "story one description",
             tasks: [
               {
                 id: brand<"TaskId">("S1.T1"),
                 title: "Task 1",
+                description: "task one description",
                 files: [brand<"AbsolutePath">("src/foo.ts")],
-                acceptance: [{ behavioral: "task acc 1", mechanism: Option.none() }],
                 depends_on: [],
                 status: "pending",
                 attempts: 0,
@@ -284,8 +283,8 @@ describe("FeatureContract", () => {
               {
                 id: brand<"TaskId">("S1.T2"),
                 title: "Task 2",
+                description: "task two description",
                 files: [],
-                acceptance: [],
                 depends_on: [brand<"TaskId">("S1.T1")],
                 status: "done",
                 attempts: 1,
@@ -427,28 +426,28 @@ describe("FeatureContract", () => {
   });
 
   // -------------------------------------------------------------------------
-  // description field — optional on Task, Story, Feature (S1.T1)
+  // description field — required on Task, Story, Feature (S5.T1)
   // -------------------------------------------------------------------------
 
-  describe("description field (optional)", () => {
+  describe("description field (required)", () => {
     test("task with description field decodes and preserves the string", async () => {
       const p = brand<"AbsolutePath">(`${tmpDir}/task-with-description.json`);
       const contract = {
         feature: "test",
         goal: "test goal",
+        description: "feature description",
         constraints: [],
         stories: [
           {
             id: "S1",
             title: "Story 1",
-            acceptance: [],
+            description: "story description",
             tasks: [
               {
                 id: "T1",
                 title: "Task 1",
-                description: "Add description field as Schema.optional to all three schemas.",
+                description: "Add description field as Schema.String to all three schemas.",
                 files: [],
-                acceptance: [],
                 depends_on: [],
                 status: "pending",
                 attempts: 0,
@@ -475,26 +474,27 @@ describe("FeatureContract", () => {
       );
 
       const task = feature.stories[0]!.tasks[0]!;
-      expect(task.description).toBe("Add description field as Schema.optional to all three schemas.");
+      expect(task.description).toBe("Add description field as Schema.String to all three schemas.");
     });
 
-    test("task without description field decodes successfully with description absent", async () => {
+    test("task without description field → ContractSchemaFailed (description is required)", async () => {
       const p = brand<"AbsolutePath">(`${tmpDir}/task-without-description.json`);
       const contract = {
         feature: "test",
         goal: "test goal",
+        description: "feature description",
         constraints: [],
         stories: [
           {
             id: "S1",
             title: "Story 1",
-            acceptance: [],
+            description: "story description",
             tasks: [
               {
                 id: "T1",
                 title: "Task 1",
+                // description intentionally absent
                 files: [],
-                acceptance: [],
                 depends_on: [],
                 status: "pending",
                 attempts: 0,
@@ -514,14 +514,91 @@ describe("FeatureContract", () => {
         ).pipe(Effect.provide(BunContext.layer)),
       );
 
-      const feature = await Effect.runPromise(
+      const exit = await Effect.runPromiseExit(
         Effect.flatMap(FeatureContract, (fc) => fc.load(p)).pipe(
           Effect.provide(testLayer),
         ),
       );
 
-      const task = feature.stories[0]!.tasks[0]!;
-      expect(task.description).toBeUndefined();
+      expect(Exit.isFailure(exit)).toBe(true);
+      if (Exit.isFailure(exit) && exit.cause._tag === "Fail") {
+        expect(exit.cause.error._tag).toBe("ContractSchemaFailed");
+      } else {
+        throw new Error(`Unexpected exit shape: ${JSON.stringify(exit)}`);
+      }
+    });
+
+    test("story without description field → ContractSchemaFailed (description is required)", async () => {
+      const p = brand<"AbsolutePath">(`${tmpDir}/story-without-description.json`);
+      const contract = {
+        feature: "test",
+        goal: "test goal",
+        description: "feature description",
+        constraints: [],
+        stories: [
+          {
+            id: "S1",
+            title: "Story 1",
+            // description intentionally absent
+            tasks: [],
+          },
+        ],
+      };
+
+      await Effect.runPromise(
+        Effect.flatMap(FileSystem.FileSystem, (fs) =>
+          Effect.gen(function* () {
+            yield* ensureTmpDir(fs);
+            yield* fs.writeFileString(p, JSON.stringify(contract));
+          }),
+        ).pipe(Effect.provide(BunContext.layer)),
+      );
+
+      const exit = await Effect.runPromiseExit(
+        Effect.flatMap(FeatureContract, (fc) => fc.load(p)).pipe(
+          Effect.provide(testLayer),
+        ),
+      );
+
+      expect(Exit.isFailure(exit)).toBe(true);
+      if (Exit.isFailure(exit) && exit.cause._tag === "Fail") {
+        expect(exit.cause.error._tag).toBe("ContractSchemaFailed");
+      } else {
+        throw new Error(`Unexpected exit shape: ${JSON.stringify(exit)}`);
+      }
+    });
+
+    test("feature without description field → ContractSchemaFailed (description is required)", async () => {
+      const p = brand<"AbsolutePath">(`${tmpDir}/feature-without-description.json`);
+      const contract = {
+        feature: "test",
+        goal: "test goal",
+        // description intentionally absent
+        constraints: [],
+        stories: [],
+      };
+
+      await Effect.runPromise(
+        Effect.flatMap(FileSystem.FileSystem, (fs) =>
+          Effect.gen(function* () {
+            yield* ensureTmpDir(fs);
+            yield* fs.writeFileString(p, JSON.stringify(contract));
+          }),
+        ).pipe(Effect.provide(BunContext.layer)),
+      );
+
+      const exit = await Effect.runPromiseExit(
+        Effect.flatMap(FeatureContract, (fc) => fc.load(p)).pipe(
+          Effect.provide(testLayer),
+        ),
+      );
+
+      expect(Exit.isFailure(exit)).toBe(true);
+      if (Exit.isFailure(exit) && exit.cause._tag === "Fail") {
+        expect(exit.cause.error._tag).toBe("ContractSchemaFailed");
+      } else {
+        throw new Error(`Unexpected exit shape: ${JSON.stringify(exit)}`);
+      }
     });
 
     test("story with description field decodes and preserves the string", async () => {
@@ -529,13 +606,13 @@ describe("FeatureContract", () => {
       const contract = {
         feature: "test",
         goal: "test goal",
+        description: "feature description",
         constraints: [],
         stories: [
           {
             id: "S1",
             title: "Story 1",
-            description: "Schema gains optional description on Task/Story/Feature.",
-            acceptance: [],
+            description: "Schema gains required description on Task/Story/Feature.",
             tasks: [],
           },
         ],
@@ -557,7 +634,7 @@ describe("FeatureContract", () => {
       );
 
       expect(feature.stories[0]!.description).toBe(
-        "Schema gains optional description on Task/Story/Feature.",
+        "Schema gains required description on Task/Story/Feature.",
       );
     });
 
@@ -593,27 +670,34 @@ describe("FeatureContract", () => {
   });
 
   // -------------------------------------------------------------------------
-  // AcceptanceCriterionSchema — strict dual-form (S1.T3)
+  // Unknown acceptance field — silently dropped by Schema.decodeUnknown (S5.T1)
   // -------------------------------------------------------------------------
 
-  describe("AcceptanceCriterionSchema", () => {
-    test("legacy single-string criterion fails decoding with ContractSchemaFailed", async () => {
-      const p = brand<"AbsolutePath">(`${tmpDir}/legacy-string-acceptance.json`);
-      const legacyContract = {
+  describe("unknown acceptance field at task/story level", () => {
+    test("task with extra 'acceptance' field decodes successfully — Schema.decodeUnknown strips unknown fields", async () => {
+      // Effect Schema.Struct strips unknown fields by default (onExcessProperty: "ignore").
+      // The 'acceptance' field is unknown to the strict S5.T1 schema and is silently dropped.
+      // There is no way to make Schema.Struct reject extra properties without passing
+      // { onExcessProperty: "error" } explicitly to Schema.decodeUnknown. The production
+      // load path does not set that option, so acceptance survives as a no-op.
+      const p = brand<"AbsolutePath">(`${tmpDir}/task-with-acceptance-field.json`);
+      const contract = {
         feature: "test",
         goal: "test goal",
+        description: "feature description",
         constraints: [],
         stories: [
           {
             id: "S1",
             title: "Story 1",
-            acceptance: [],
+            description: "story description",
             tasks: [
               {
                 id: "T1",
                 title: "Task 1",
+                description: "task description",
                 files: [],
-                acceptance: ["legacy string criterion"],
+                acceptance: [{ behavioral: "something", mechanism: { _id: "Option", _tag: "None" } }],
                 depends_on: [],
                 status: "pending",
                 attempts: 0,
@@ -628,45 +712,47 @@ describe("FeatureContract", () => {
         Effect.flatMap(FileSystem.FileSystem, (fs) =>
           Effect.gen(function* () {
             yield* ensureTmpDir(fs);
-            yield* fs.writeFileString(p, JSON.stringify(legacyContract));
+            yield* fs.writeFileString(p, JSON.stringify(contract));
           }),
         ).pipe(Effect.provide(BunContext.layer)),
       );
 
-      const exit = await Effect.runPromiseExit(
+      const feature = await Effect.runPromise(
         Effect.flatMap(FeatureContract, (fc) => fc.load(p)).pipe(
           Effect.provide(testLayer),
         ),
       );
 
-      expect(Exit.isFailure(exit)).toBe(true);
-      if (Exit.isFailure(exit) && exit.cause._tag === "Fail") {
-        expect(exit.cause.error._tag).toBe("ContractSchemaFailed");
-      } else {
-        throw new Error(`Unexpected exit shape: ${JSON.stringify(exit)}`);
+      const task = feature.stories[0]!.tasks[0]!;
+      expect(task.description).toBe("task description");
+      // acceptance is stripped from the decoded output — no property at all
+      expect((task as unknown as Record<string, unknown>)["acceptance"]).toBeUndefined();
+    });
+
+    test("Schema.decodeUnknown with onExcessProperty: 'error' rejects unknown 'acceptance' field", () => {
+      // This documents the mechanism: if a caller explicitly enables strict excess-property
+      // checking, the acceptance field is rejected. The production FeatureContract.load does
+      // not use this option, but the schema is clean enough that a strict decode fails on
+      // legacy acceptance data — confirming the field is truly unknown.
+      const taskWithAcceptance = {
+        id: "T1",
+        title: "Task 1",
+        description: "task description",
+        files: [],
+        acceptance: [{ behavioral: "something" }],
+        depends_on: [],
+        status: "pending" as const,
+        attempts: 0,
+        maxAttempts: 3,
+      };
+
+      let threw = false;
+      try {
+        Schema.decodeUnknownSync(TaskSchema, { onExcessProperty: "error" })(taskWithAcceptance);
+      } catch {
+        threw = true;
       }
-    });
-
-    test("dual-form struct with mechanism: Option.some() decodes", () => {
-      const result = Schema.decodeUnknownSync(AcceptanceCriterionSchema)({
-        behavioral: "the thing works",
-        mechanism: { _id: "Option", _tag: "Some", value: "via foo.ts" },
-      });
-      expect(result).toEqual({
-        behavioral: "the thing works",
-        mechanism: Option.some("via foo.ts"),
-      });
-    });
-
-    test("dual-form struct with mechanism: Option.none() decodes", () => {
-      const result = Schema.decodeUnknownSync(AcceptanceCriterionSchema)({
-        behavioral: "the thing works",
-        mechanism: { _id: "Option", _tag: "None" },
-      });
-      expect(result).toEqual({
-        behavioral: "the thing works",
-        mechanism: Option.none(),
-      });
+      expect(threw).toBe(true);
     });
   });
 });

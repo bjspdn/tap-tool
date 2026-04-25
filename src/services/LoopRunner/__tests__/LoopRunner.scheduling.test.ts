@@ -91,8 +91,8 @@ const makeTask = (
 ): Task => ({
   id: brand<"TaskId">(id),
   title: `Task ${id}`,
+  description: `Description for task ${id}`,
   files: [],
-  acceptance: [],
   depends_on: depends_on.map((d) => brand<"TaskId">(d)),
   status,
   attempts,
@@ -102,12 +102,13 @@ const makeTask = (
 const makeFeature = (tasks: Task[], featureName = "test"): Feature => ({
   feature: featureName,
   goal: "test goal",
+  description: "test feature description",
   constraints: [],
   stories: [
     {
       id: brand<"StoryId">("S1"),
       title: "Story 1",
-      acceptance: [],
+      description: "story one description",
       tasks,
     },
   ],

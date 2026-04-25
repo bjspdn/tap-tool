@@ -20,15 +20,6 @@
       "id": "S1",
       "title": "Schema gains optional description; migrate four contracts",
       "description": "Schema gains optional description on Task/Story/Feature. AcceptanceCriterion and acceptance field stay (dropped at S5). Migrate all four FEATURE_CONTRACT.json files to populate description. Schema decode and tsc remain clean.",
-      "acceptance": [
-        {
-          "behavioral": "TaskSchema, StorySchema, FeatureSchema each have an optional description field; Contract.d.ts ambient types match; all four FEATURE_CONTRACT.json files have description populated at every level and decode under the updated schema; bun test and bunx tsc --noEmit exit 0",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "None"
-          }
-        }
-      ],
       "tasks": [
         {
           "id": "S1.T1",
@@ -43,15 +34,6 @@
             ".tap/features/contract-satisfiability/FEATURE_CONTRACT.json",
             ".tap/features/reviewer-judgment/FEATURE_CONTRACT.json"
           ],
-          "acceptance": [
-            {
-              "behavioral": "S1.T1 description in .tap/features/reviewer-judgment/SPECS.md <feature:descriptions> block is realized in the listed files; bun test exits 0; bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
-          ],
           "depends_on": [],
           "status": "in_progress",
           "attempts": 2,
@@ -63,15 +45,6 @@
       "id": "S2",
       "title": "Reviewer pipeline flips to PR-style judgment",
       "description": "Reviewer pipeline flips to PR-style judgment. EvalParser rewrites for new eval body shape (summary + comments YAML). Reviewer.md, code-review SKILL, and REVIEWER_CONTRACT.md template all adopt the four behavior prompts and new output spec.",
-      "acceptance": [
-        {
-          "behavioral": "EvalParser parses <eval:summary> + <eval:comments> with field set {file, line?, severity, comment}; verdict tag stays PASS|FAIL; FAIL requires comments.length >= 1; Reviewer.md and code-review SKILL.md and REVIEWER_CONTRACT.md drive judgment via the four behavior prompts; LoopRunner field rename issues→comments lands; bun test and bunx tsc --noEmit exit 0",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "None"
-          }
-        }
-      ],
       "tasks": [
         {
           "id": "S2.T1",
@@ -85,15 +58,6 @@
             "src/services/LoopRunner/LoopRunnerLive.ts",
             "src/services/__tests__/EvalParser.test.ts",
             "src/services/__tests__/RunTask.test.ts"
-          ],
-          "acceptance": [
-            {
-              "behavioral": "S2.T1 description in .tap/features/reviewer-judgment/SPECS.md <feature:descriptions> block is realized in the listed files; bun test exits 0; bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
           ],
           "depends_on": [
             "S1.T1"
@@ -111,15 +75,6 @@
             ".claude/skills/code-review/SKILL.md",
             ".tap/prompts/REVIEWER_CONTRACT.md"
           ],
-          "acceptance": [
-            {
-              "behavioral": "S2.T2 description in .tap/features/reviewer-judgment/SPECS.md <feature:descriptions> block is realized in the listed files; bun test exits 0; bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
-          ],
           "depends_on": [
             "S2.T1"
           ],
@@ -133,15 +88,6 @@
       "id": "S3",
       "title": "Composer pipeline flips to description-as-obligation",
       "description": "Composer pipeline flips to description-as-obligation. ContextEngine renders description fields, drops task_acceptance, drops dead featureRoot param. COMPOSER_CONTRACT.md template and Composer.md agent file align with the new shape.",
-      "acceptance": [
-        {
-          "behavioral": "ContextEngine renders task_description, story_title, story_description, feature_description; task_acceptance is dropped from rendered context; dead featureRoot param removed from render-input types; priorEvalPath threading has test coverage; COMPOSER_CONTRACT.md and Composer.md align with the new shape; bun test and bunx tsc --noEmit exit 0",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "None"
-          }
-        }
-      ],
       "tasks": [
         {
           "id": "S3.T1",
@@ -151,15 +97,6 @@
             "src/services/ContextEngine.ts",
             "src/types/ContextEngine.d.ts",
             "src/services/__tests__/ContextEngine.test.ts"
-          ],
-          "acceptance": [
-            {
-              "behavioral": "S3.T1 description in .tap/features/reviewer-judgment/SPECS.md <feature:descriptions> block is realized in the listed files; bun test exits 0; bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
           ],
           "depends_on": [
             "S2.T2"
@@ -176,15 +113,6 @@
             ".tap/prompts/COMPOSER_CONTRACT.md",
             ".claude/agents/Composer.md"
           ],
-          "acceptance": [
-            {
-              "behavioral": "S3.T2 description in .tap/features/reviewer-judgment/SPECS.md <feature:descriptions> block is realized in the listed files; bun test exits 0; bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
-          ],
           "depends_on": [
             "S3.T1"
           ],
@@ -198,15 +126,6 @@
       "id": "S4",
       "title": "tap-into skill emits description fields",
       "description": "tap-into skill emits description fields instead of acceptance arrays. Future features authored via this skill produce contracts in the new shape from the start, no migration needed.",
-      "acceptance": [
-        {
-          "behavioral": "tap-into SKILL.md <output_contract>, <sprint_json_schema>, <example_turns>, <convergence_check> sections updated to emit description at task, story, feature levels instead of acceptance arrays; bun test and bunx tsc --noEmit exit 0",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "None"
-          }
-        }
-      ],
       "tasks": [
         {
           "id": "S4.T1",
@@ -214,15 +133,6 @@
           "description": "Rewrite the <output_contract> and <sprint_json_schema> sections of .claude/skills/tap-into/SKILL.md to emit description fields at task, story, and feature levels instead of acceptance arrays. Update <example_turns> so illustrative output matches the new shape. Update <convergence_check>: drop the \"acceptance criteria are observable\" bullet, replace with \"every task has a description (≤3 lines) that names what to build.\"",
           "files": [
             ".claude/skills/tap-into/SKILL.md"
-          ],
-          "acceptance": [
-            {
-              "behavioral": "S4.T1 description in .tap/features/reviewer-judgment/SPECS.md <feature:descriptions> block is realized in the listed files; bun test exits 0; bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
           ],
           "depends_on": [
             "S3.T2"
@@ -237,15 +147,6 @@
       "id": "S5",
       "title": "Schema strict cut: drop AcceptanceCriterion and acceptance field",
       "description": "Schema strict cut: drop AcceptanceCriterion, drop acceptance field on Task and Story. Description becomes required at all three levels. Drop empty acceptance arrays from all four contracts. Update LoopRunner resume hint and any remaining references.",
-      "acceptance": [
-        {
-          "behavioral": "AcceptanceCriterionSchema deleted; acceptance field removed from TaskSchema and StorySchema; description becomes required at all three levels; Contract.d.ts mirrors; dead bun:test module augmentation removed; dead @contract-deviation doc comments stripped from FeatureContract.ts; empty acceptance arrays removed from all four FEATURE_CONTRACT.json files; LoopRunnerLive resume-hint updated; bun test and bunx tsc --noEmit exit 0",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "None"
-          }
-        }
-      ],
       "tasks": [
         {
           "id": "S5.T1",
@@ -260,15 +161,6 @@
             ".tap/features/loop-runner/FEATURE_CONTRACT.json",
             ".tap/features/contract-satisfiability/FEATURE_CONTRACT.json",
             ".tap/features/reviewer-judgment/FEATURE_CONTRACT.json"
-          ],
-          "acceptance": [
-            {
-              "behavioral": "S5.T1 description in .tap/features/reviewer-judgment/SPECS.md <feature:descriptions> block is realized in the listed files; bun test exits 0; bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
           ],
           "depends_on": [
             "S4.T1"

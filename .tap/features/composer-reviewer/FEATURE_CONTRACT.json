@@ -17,29 +17,6 @@
     {
       "id": "S1",
       "title": "Foundation: dependency + shared type declarations",
-      "acceptance": [
-        {
-          "behavioral": "bun install exits 0 with handlebars pinned in package.json",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "None"
-          }
-        },
-        {
-          "behavioral": "bunx tsc --noEmit exits 0 with all new/renamed ambient type files in place",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "None"
-          }
-        },
-        {
-          "behavioral": "Task, Story, Feature, TaskResult, EvalIssue, RunTaskError, AgentEvent, and the four service-contract types resolve in TypeScript without any import statement",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "None"
-          }
-        }
-      ],
       "tasks": [
         {
           "id": "S1.T1",
@@ -47,30 +24,6 @@
           "files": [
             "package.json",
             "bun.lock"
-          ],
-          "acceptance": [
-            {
-              "behavioral": "handlebars key appears in the dependencies field of package.json",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "bun install exits 0 and bun.lock is updated",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "bunx tsc --noEmit resolves `import Handlebars from 'handlebars'` without error",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "import Handlebars from \"handlebars\""
-              }
-            }
           ],
           "depends_on": [],
           "status": "done",
@@ -86,51 +39,6 @@
             "src/types/LoopRunner.d.ts",
             "src/services/LoopRunner.ts"
           ],
-          "acceptance": [
-            {
-              "behavioral": "src/types/agent-runner.d.ts does not exist on disk and src/types/AgentRunner.d.ts exists with the same content",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "src/types/loop-runner.d.ts does not exist on disk and src/types/LoopRunner.d.ts exists with the same content",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "bunx tsc --noEmit exits 0 after the rename",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "LoopRunner.d.ts file contains a `declare global { ... }` wrapper so its interfaces are ambient globals when the file contains an import",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "declare global { ... }"
-              }
-            },
-            {
-              "behavioral": "AgentRunner.d.ts does not contain an AgentResult interface definition",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "src/services/LoopRunner.ts does not contain an import statement for any ambient type",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
-          ],
           "depends_on": [],
           "status": "done",
           "attempts": 1,
@@ -142,46 +50,6 @@
           "title": "Author Contract.d.ts (Task, Story, Feature) with branded ID + path types",
           "files": [
             "src/types/Contract.d.ts"
-          ],
-          "acceptance": [
-            {
-              "behavioral": "Contract.d.ts declares ambient global types Task, Story, Feature with the exact field shapes specified: Task fields id, title, files, acceptance, depends_on, status, attempts, maxAttempts; Story fields id, title, acceptance, tasks; Feature fields feature, goal, constraints, stories",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "Contract.d.ts"
-              }
-            },
-            {
-              "behavioral": "the TaskStatus type resolves as exactly `\"pending\" | \"in_progress\" | \"done\" | \"failed\"` with no other variants",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "\"pending\" | \"in_progress\" | \"done\" | \"failed\""
-              }
-            },
-            {
-              "behavioral": "Brand<T, B>, TaskId, StoryId, and AbsolutePath are globally available without imports in any TypeScript file",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "Brand<T, B>"
-              }
-            },
-            {
-              "behavioral": "Task.id is typed TaskId, Task.depends_on is typed readonly TaskId[], Task.files is typed readonly AbsolutePath[], Story.id is typed StoryId",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
           ],
           "depends_on": [
             "S1.T2"
@@ -197,37 +65,6 @@
           "files": [
             "src/types/AgentRunner.d.ts"
           ],
-          "acceptance": [
-            {
-              "behavioral": "AgentEvent is a discriminated union with variants system, assistant, user, result each carrying the fields listed in SPECS.md",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "ContentBlock is a discriminated union with variants text, tool_use, and tool_result",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "AgentRunOptions type has fields role, stdin, cwd, attempt, logPath, stderrLogPath, evalPath with the types and brands specified: role is 'Composer' | 'Reviewer', path fields use AbsolutePath brand from Contract.d.ts",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "AgentRunOptions"
-              }
-            },
-            {
-              "behavioral": "bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
-          ],
           "depends_on": [
             "S1.T2",
             "S1.T3"
@@ -242,36 +79,6 @@
           "title": "Author RunTask.d.ts (TaskResult, EvalIssue, RunTaskError)",
           "files": [
             "src/types/RunTask.d.ts"
-          ],
-          "acceptance": [
-            {
-              "behavioral": "EvalIssue type has fields acceptanceFailed: string, file: AbsolutePath, problem: string, suggestedFix: string",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "TaskResult type has fields taskId: TaskId, attempt: number, verdict, rationale, issues, composerLogPath: AbsolutePath, reviewerLogPath: AbsolutePath, evalResultPath: AbsolutePath, durationMs: number",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "RunTaskError is a discriminated union with exactly six variants: AgentSpawnFailed (carries role), AgentMaxTurnsExceeded (carries role), EvalResultMissing, EvalParseFailed, TemplateRenderFailed, FilesystemError, each with the specified fields; path fields in EvalResultMissing and FilesystemError use the AbsolutePath brand",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
           ],
           "depends_on": [
             "S1.T2",
@@ -289,39 +96,6 @@
             "src/types/ContextEngine.d.ts",
             "src/types/EvalParser.d.ts"
           ],
-          "acceptance": [
-            {
-              "behavioral": "ContextEngine.d.ts declares ComposerRenderInput, ReviewerRenderInput, and TemplateRenderError types with the exact field shapes specified; priorEval uses Option.Option<AbsolutePath>; no null or undefined fields",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "ComposerRenderInput, ReviewerRenderInput, TemplateRenderError"
-              }
-            },
-            {
-              "behavioral": "ContextEngine.d.ts file contains a `declare global { ... }` wrapper and `import type { Option } from \"effect\"` so declarations remain ambient globals",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "import type { Option } from \"effect\"; declare global { ... }"
-              }
-            },
-            {
-              "behavioral": "EvalParser.d.ts declares EvalResult with fields verdict: 'PASS' | 'FAIL', rationale: string, issues: ReadonlyArray<EvalIssue> and EvalParseError derived from RunTaskError via Extract",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "EvalParseError = Extract<RunTaskError, { _tag: \"EvalParseFailed\" | \"EvalResultMissing\" }>"
-              }
-            },
-            {
-              "behavioral": "bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
-          ],
           "depends_on": [
             "S1.T3",
             "S1.T5"
@@ -337,66 +111,12 @@
     {
       "id": "S2",
       "title": "Static content: sub-agent identities, skills, prompt templates",
-      "acceptance": [
-        {
-          "behavioral": ".claude/agents/Composer.md and .claude/agents/Reviewer.md exist on disk with valid YAML frontmatter and body matching the agreed shape",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "None"
-          }
-        },
-        {
-          "behavioral": ".claude/skills/tdd/SKILL.md, .claude/skills/anti-patterns/SKILL.md, and .claude/skills/code-review/SKILL.md all exist on disk with the agreed bodies",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "None"
-          }
-        },
-        {
-          "behavioral": ".tap/prompts/COMPOSER_CONTRACT.md and .tap/prompts/REVIEWER_CONTRACT.md exist with handlebars placeholders matching the RenderInput shape",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "None"
-          }
-        },
-        {
-          "behavioral": "YAML frontmatter parses without error and Handlebars.compile succeeds on each template file",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "Some",
-            "value": "Handlebars.compile"
-          }
-        }
-      ],
       "tasks": [
         {
           "id": "S2.T1",
           "title": "Author .claude/agents/Composer.md",
           "files": [
             ".claude/agents/Composer.md"
-          ],
-          "acceptance": [
-            {
-              "behavioral": ".claude/agents/Composer.md YAML frontmatter contains name: Composer, model: sonnet, skills: [tdd, anti-patterns], maxTurns: 50, and a single-sentence description",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "Composer.md body text contains rules stating: edit only task.files, no commits/pushes, run bun test and bunx tsc --noEmit before exit, read prior_eval_path on retry",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "YAML frontmatter in Composer.md parses without error using a standard YAML parser",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
           ],
           "depends_on": [],
           "status": "done",
@@ -410,29 +130,6 @@
           "files": [
             ".claude/agents/Reviewer.md"
           ],
-          "acceptance": [
-            {
-              "behavioral": ".claude/agents/Reviewer.md YAML frontmatter contains name: Reviewer, model: opus, skills: [anti-patterns, code-review], maxTurns: 50, and a single-sentence description",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "Reviewer.md body text states: do not edit source code, do not commit, run bun test and bunx tsc --noEmit independently, write output only to EVAL_RESULT.md at eval_path",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "YAML frontmatter in Reviewer.md parses without error using a standard YAML parser",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
-          ],
           "depends_on": [],
           "status": "done",
           "attempts": 1,
@@ -444,36 +141,6 @@
           "title": "Author .claude/skills/tdd/SKILL.md",
           "files": [
             ".claude/skills/tdd/SKILL.md"
-          ],
-          "acceptance": [
-            {
-              "behavioral": ".claude/skills/tdd/SKILL.md frontmatter description field explicitly mentions the trigger condition of acceptance referring to a test file",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "tdd SKILL.md body text contains the red-green-refactor loop, one-assertion-per-test rule, behavior-named tests, and small-fast-unit preference",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "tdd SKILL.md body text does not contain Bun-, TypeScript-, or Effect-specific rules",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": ".claude/skills/tdd/SKILL.md exists at the path recognized by the Claude Code harness skill registry",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
           ],
           "depends_on": [],
           "status": "done",
@@ -487,36 +154,6 @@
           "files": [
             ".claude/skills/anti-patterns/SKILL.md"
           ],
-          "acceptance": [
-            {
-              "behavioral": ".claude/skills/anti-patterns/SKILL.md frontmatter description mentions writing or reviewing code before finalizing as the trigger",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "anti-patterns SKILL.md body text enumerates monolithic files (>~300 lines), 3+ duplication rule, no impurity in pure zones, deep-nesting smell, magic values, vague names, commented-out code, and implicit contracts",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "anti-patterns SKILL.md body text does not contain language- or framework-specific rules",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": ".claude/skills/anti-patterns/SKILL.md exists at the path recognized by the Claude Code harness skill registry",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
-          ],
           "depends_on": [],
           "status": "done",
           "attempts": 1,
@@ -528,37 +165,6 @@
           "title": "Author .claude/skills/code-review/SKILL.md",
           "files": [
             ".claude/skills/code-review/SKILL.md"
-          ],
-          "acceptance": [
-            {
-              "behavioral": ".claude/skills/code-review/SKILL.md frontmatter description identifies the trigger as acting as Reviewer in the tap-tool Ralph loop",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "code-review SKILL.md body text covers per-criterion classification (Satisfied / Not satisfied / Partial), zero-trust verification steps, scope-check (nothing touched outside task.files), and verdict rules (PASS only when every criterion satisfied, tests green, no anti-pattern violations)",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "code-review SKILL.md body text contains a reference to the <eval:verdict> schema and mentions REVIEWER_CONTRACT.md for emission details",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "<eval:verdict>"
-              }
-            },
-            {
-              "behavioral": ".claude/skills/code-review/SKILL.md exists at the path recognized by the Claude Code harness skill registry",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
           ],
           "depends_on": [],
           "status": "done",
@@ -572,47 +178,6 @@
           "files": [
             ".tap/prompts/COMPOSER_CONTRACT.md"
           ],
-          "acceptance": [
-            {
-              "behavioral": "COMPOSER_CONTRACT.md template file contains handlebars placeholders for feature_goal, feature_constraints, task_id, task_title, task_files, task_acceptance, specs_path, contract_path, prior_eval_path, and git_status",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "COMPOSER_CONTRACT.md template ends with an explicit kickoff directive such as `## Begin now.`",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "## Begin now."
-              }
-            },
-            {
-              "behavioral": "COMPOSER_CONTRACT.md template uses triple-brace `{{{ }}}` for feature_goal, feature_constraints items, task_title, task_files items, task_acceptance items, git_status and double-brace `{{ }}` for task_id, specs_path, contract_path",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "{{{ }}} and {{ }}"
-              }
-            },
-            {
-              "behavioral": "COMPOSER_CONTRACT.md template contains an `{{#if prior_eval_path}}...{{/if}}` block that wraps the prior_eval_path placeholder so it is omitted on attempt 1",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "{{#if prior_eval_path}}...{{/if}}"
-              }
-            },
-            {
-              "behavioral": "Handlebars.compile called on the COMPOSER_CONTRACT.md file contents returns without throwing",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "Handlebars.compile"
-              }
-            }
-          ],
           "depends_on": [],
           "status": "done",
           "attempts": 1,
@@ -624,46 +189,6 @@
           "title": "Author .tap/prompts/REVIEWER_CONTRACT.md",
           "files": [
             ".tap/prompts/REVIEWER_CONTRACT.md"
-          ],
-          "acceptance": [
-            {
-              "behavioral": "REVIEWER_CONTRACT.md template file contains handlebars placeholders for task_id, task_title, task_files, task_acceptance, specs_path, contract_path, and eval_path",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "REVIEWER_CONTRACT.md template contains an instruction to write EVAL_RESULT.md at {{eval_path}} using the Write tool, with the verdict/rationale/issues block format shown inline",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "{{eval_path}}, Write tool"
-              }
-            },
-            {
-              "behavioral": "REVIEWER_CONTRACT.md template uses triple-brace {{{ }}} for task_title, task_files items, task_acceptance items and double-brace {{ }} for controlled IDs and paths",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "{{{ }}} and {{ }}"
-              }
-            },
-            {
-              "behavioral": "REVIEWER_CONTRACT.md template ends with an explicit kickoff directive",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "Handlebars.compile called on REVIEWER_CONTRACT.md file contents returns without throwing",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "Handlebars.compile"
-              }
-            }
           ],
           "depends_on": [],
           "status": "done",
@@ -677,79 +202,12 @@
     {
       "id": "S3",
       "title": "ContextEngine service",
-      "acceptance": [
-        {
-          "behavioral": "ContextEngine is exported as an Effect Context.Tag with a ContextEngineLive Layer that reads templates and renders Composer and Reviewer contracts using handlebars",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "Some",
-            "value": "Context.Tag, ContextEngineLive Layer"
-          }
-        },
-        {
-          "behavioral": "calling renderComposer or renderReviewer with an undefined placeholder value returns an Effect that fails with { _tag: 'TemplateRenderFailed' } rather than succeeding with a blank placeholder",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "Some",
-            "value": "TemplateRenderFailed"
-          }
-        }
-      ],
       "tasks": [
         {
           "id": "S3.T1",
           "title": "Implement ContextEngine.ts",
           "files": [
             "src/services/ContextEngine.ts"
-          ],
-          "acceptance": [
-            {
-              "behavioral": "src/services/ContextEngine.ts exports a ContextEngine Context.Tag with renderComposer and renderReviewer methods matching the signatures renderComposer(input: ComposerRenderInput): Effect<string, TemplateRenderError> and renderReviewer(input: ReviewerRenderInput): Effect<string, TemplateRenderError>",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "ContextEngine Context.Tag, renderComposer(input: ComposerRenderInput): Effect<string, TemplateRenderError>, renderReviewer(input: ReviewerRenderInput): Effect<string, TemplateRenderError>"
-              }
-            },
-            {
-              "behavioral": "src/services/ContextEngine.ts exports a makeContextEngine function that accepts two template strings and returns a ContextEngine service instance without reading disk",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "makeContextEngine(composerSrc: string, reviewerSrc: string): ContextEngine[\"Type\"]"
-              }
-            },
-            {
-              "behavioral": "ContextEngineLive is a Layer that reads .tap/prompts/COMPOSER_CONTRACT.md and .tap/prompts/REVIEWER_CONTRACT.md from disk via @effect/platform FileSystem and delegates to makeContextEngine",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "ContextEngineLive, @effect/platform FileSystem, .tap/prompts/COMPOSER_CONTRACT.md, .tap/prompts/REVIEWER_CONTRACT.md"
-              }
-            },
-            {
-              "behavioral": "rendering a template with an undefined placeholder fails the Effect with a TemplateRenderError containing a missingKey field extracted from the Handlebars error message matching the pattern `\"<name>\" not defined`",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "handlebars strict: true, TemplateRenderError with missingKey"
-              }
-            },
-            {
-              "behavioral": "the rendered template context uses snake_case keys (feature_goal, feature_constraints, etc.) and priorEval Option is coerced to empty string when absent with no null/undefined in the context",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "toComposerContext, toReviewerContext, Option.getOrElse(priorEval, () => \"\")"
-              }
-            },
-            {
-              "behavioral": "bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
           ],
           "depends_on": [
             "S1.T1",
@@ -769,62 +227,6 @@
           "files": [
             "src/services/__tests__/ContextEngine.test.ts"
           ],
-          "acceptance": [
-            {
-              "behavioral": "a test file exists at src/services/__tests__/ContextEngine.test.ts",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "bun test src/services/__tests__/ContextEngine.test.ts passes with a fixture that verifies every user-provided value (feature goal, each constraint, task id/title, each file, each acceptance criterion, specs path, contract path, git status) appears verbatim in the rendered output using the production .tap/prompts/COMPOSER_CONTRACT.md source",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": ".tap/prompts/COMPOSER_CONTRACT.md"
-              }
-            },
-            {
-              "behavioral": "a test using makeContextEngine with a template containing `{{ mystery_field }}` fails the Effect with { _tag: 'TemplateRenderFailed', template: 'COMPOSER_CONTRACT.md', missingKey: 'mystery_field' }",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "makeContextEngine, {{ mystery_field }}"
-              }
-            },
-            {
-              "behavioral": "a test that sets task.title and a task.acceptance entry to strings containing `{{ ... }}` fragments produces rendered output containing those fragments verbatim",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "triple-brace {{{ }}} in template"
-              }
-            },
-            {
-              "behavioral": "a reviewer render test asserts that evalPath appears verbatim and the <eval:verdict> schema fragment is present in the rendered output",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "renderReviewer, evalPath, <eval:verdict>"
-              }
-            },
-            {
-              "behavioral": "the test file contains no any or as unknown as; brand construction uses a brand<B>(s) helper with a single as cast",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "brand<B>(s)"
-              }
-            },
-            {
-              "behavioral": "bun test src/services/__tests__/ContextEngine.test.ts exits 0 and the full bun test suite also exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
-          ],
           "depends_on": [
             "S3.T1"
           ],
@@ -839,77 +241,12 @@
     {
       "id": "S4",
       "title": "EvalParser service",
-      "acceptance": [
-        {
-          "behavioral": "EvalParser.parse called with an EVAL_RESULT.md string returns either EvalResult on success or fails with EvalParseFailed",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "Some",
-            "value": "EvalParser.parse, EvalResult, EvalParseFailed"
-          }
-        },
-        {
-          "behavioral": "parsing an EVAL_RESULT.md with prose before/after the XML blocks succeeds; parsing one missing any of the three XML blocks fails with EvalParseFailed",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "None"
-          }
-        }
-      ],
       "tasks": [
         {
           "id": "S4.T1",
           "title": "Implement EvalParser.ts",
           "files": [
             "src/services/EvalParser.ts"
-          ],
-          "acceptance": [
-            {
-              "behavioral": "src/services/EvalParser.ts exports an EvalParser Context.Tag with a parse method matching the signature parse(rawContent: string): Effect<EvalResult, EvalParseFailed>",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "EvalParser Context.Tag, parse(rawContent: string): Effect<EvalResult, EvalParseFailed>"
-              }
-            },
-            {
-              "behavioral": "src/services/EvalParser.ts exports parseEvalContent as a standalone function used by EvalParserLive via Layer.succeed",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "parseEvalContent, Layer.succeed"
-              }
-            },
-            {
-              "behavioral": "EvalParser extracts <eval:verdict>, <eval:rationale>, <eval:issues> blocks via regex non-greedy match and parses issues YAML into EvalIssue[] using the yaml npm lib (v2.8.3), mapping acceptance_failed to acceptanceFailed, suggested_fix to suggestedFix, and branding file as AbsolutePath at the parse boundary",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "regex non-greedy match, yaml npm lib v2.8.3, acceptance_failed → acceptanceFailed, suggested_fix → suggestedFix, AbsolutePath brand"
-              }
-            },
-            {
-              "behavioral": "EvalParser succeeds when prose surrounds the XML blocks and fails with EvalParseFailed containing rawContent when any of the three XML tags is missing",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "EvalParseFailed with rawContent"
-              }
-            },
-            {
-              "behavioral": "EvalParser accepts empty issues array when verdict is PASS and fails with EvalParseFailed when verdict is FAIL and issues array is empty",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
           ],
           "depends_on": [
             "S1.T5",
@@ -926,68 +263,6 @@
           "files": [
             "src/services/__tests__/EvalParser.test.ts"
           ],
-          "acceptance": [
-            {
-              "behavioral": "a test file exists at src/services/__tests__/EvalParser.test.ts",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "a test with a PASS EVAL_RESULT.md containing empty issues parses to { verdict: 'PASS', issues: [] }",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "a test with a FAIL EVAL_RESULT.md containing two issues parses to an array where acceptance_failed maps to acceptanceFailed and suggested_fix maps to suggestedFix",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "acceptance_failed → acceptanceFailed, suggested_fix → suggestedFix"
-              }
-            },
-            {
-              "behavioral": "a test with a missing <eval:verdict> tag fails with EvalParseFailed containing rawContent and a reason field mentioning 'verdict'",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "EvalParseFailed with reason and rawContent"
-              }
-            },
-            {
-              "behavioral": "a test with malformed YAML in <eval:issues> (unterminated string) fails with EvalParseFailed containing rawContent",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "EvalParseFailed with rawContent"
-              }
-            },
-            {
-              "behavioral": "a test with a FAIL EVAL_RESULT.md and empty issues fails with EvalParseFailed with a reason mentioning 'FAIL'",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "the test file contains no any or as unknown as; brand construction uses a brand<B>(s) helper with a single as cast",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "brand<B>(s)"
-              }
-            },
-            {
-              "behavioral": "bun test src/services/__tests__/EvalParser.test.ts exits 0 and the full bun test suite (9 tests) also exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
-          ],
           "depends_on": [
             "S4.T1"
           ],
@@ -1002,94 +277,12 @@
     {
       "id": "S5",
       "title": "AgentRunner service",
-      "acceptance": [
-        {
-          "behavioral": "AgentRunnerLive spawns the claude command with flags `--output-format stream-json --verbose --dangerously-skip-permissions`, tees stdout to the jsonl log, tees stderr to the stderr log, and returns events with the final result event",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "Some",
-            "value": "claude -p --agent <role> --output-format stream-json --verbose --dangerously-skip-permissions"
-          }
-        },
-        {
-          "behavioral": "AgentRunnerEcho is a Layer that returns scripted AgentEvent arrays and writes canned evalFileContent to evalPath when role is Reviewer",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "Some",
-            "value": "AgentRunnerEcho Layer"
-          }
-        },
-        {
-          "behavioral": "neither AgentRunnerLive nor AgentRunnerEcho passes detached: true to the process spawn call",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "Some",
-            "value": "detached: true"
-          }
-        }
-      ],
       "tasks": [
         {
           "id": "S5.T1",
           "title": "Implement AgentRunnerLive",
           "files": [
             "src/services/AgentRunner.ts"
-          ],
-          "acceptance": [
-            {
-              "behavioral": "AgentRunner.ts uses @effect/platform Command and CommandExecutor from @effect/platform-bun to spawn the claude command with stdin from AgentRunOptions.stdin",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "@effect/platform Command, CommandExecutor, @effect/platform-bun"
-              }
-            },
-            {
-              "behavioral": "AgentRunner.ts parses stdout NDJSON line by line using AgentEventSchema exported from the file via decodeAgentEventLine, and tees raw lines to AgentRunOptions.logPath",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "AgentEventSchema, decodeAgentEventLine(line), effect/Schema"
-              }
-            },
-            {
-              "behavioral": "AgentRunner.ts writes stderr output to AgentRunOptions.stderrLogPath",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "AgentRunner.ts does not pass detached: true and sends SIGTERM to the child process on Effect interruption via the Command API",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "SIGTERM via Command API"
-              }
-            },
-            {
-              "behavioral": "src/services/AgentRunner.ts exports an AgentRunner Context.Tag with run method signature run(opts: AgentRunOptions): Effect<{ events: ReadonlyArray<AgentEvent>; result: Extract<AgentEvent, { type: 'result' }> }, AgentSpawnFailed | AgentMaxTurnsExceeded | FilesystemError, FileSystem.FileSystem>",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "AgentRunner Context.Tag, run(opts: AgentRunOptions): Effect<{ events: ReadonlyArray<AgentEvent>; result: Extract<AgentEvent, { type: 'result' }> }, AgentSpawnFailed | AgentMaxTurnsExceeded | FilesystemError, FileSystem.FileSystem>"
-              }
-            },
-            {
-              "behavioral": "AgentRunner.ts maps result.subtype === 'error_max_turns' to AgentMaxTurnsExceeded, non-zero exit to AgentSpawnFailed with role and captured stderr, and FileSystem errors during log tee to FilesystemError with branded path",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "result.subtype === 'error_max_turns', AgentMaxTurnsExceeded, AgentSpawnFailed"
-              }
-            },
-            {
-              "behavioral": "bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
           ],
           "depends_on": [
             "S1.T4",
@@ -1106,60 +299,6 @@
           "files": [
             "src/services/AgentRunner.ts"
           ],
-          "acceptance": [
-            {
-              "behavioral": "AgentRunnerEcho(script) returns Layer<AgentRunner, never, never> and Layer.merge(AgentRunnerEcho(script), BunContext.layer) composes without residual requirements",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "AgentRunnerEcho(script): Layer<AgentRunner, never, never>, Layer.merge"
-              }
-            },
-            {
-              "behavioral": "AgentRunnerEchoScript and RoleScript types are exported with the shapes Readonly<Record<AgentRole, RoleScript>> and { events: ReadonlyArray<AgentEvent>; exit: ok | maxTurns | spawnFail; evalFileContent?: string }; evalFileContent is written only when role === 'Reviewer' and the field is present",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "AgentRunnerEchoScript: Readonly<Record<AgentRole, RoleScript>>, RoleScript"
-              }
-            },
-            {
-              "behavioral": "AgentRunnerEcho writes evalFileContent to evalPath via FileSystem when role is Reviewer and evalFileContent is present",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "FileSystem.writeFileString(evalPath, evalFileContent)"
-              }
-            },
-            {
-              "behavioral": "AgentRunnerEcho writes scripted events as JSONL to logPath so the log file exists on disk with the expected content",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "AgentRunnerEcho returns AgentMaxTurnsExceeded or AgentSpawnFailed when script exit is maxTurns or spawnFail",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "AgentRunnerEcho.run does not spawn any OS subprocess",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
-          ],
           "depends_on": [
             "S5.T1"
           ],
@@ -1173,68 +312,6 @@
           "title": "Tests for AgentRunner (Echo + schema roundtrip)",
           "files": [
             "src/services/__tests__/AgentRunner.test.ts"
-          ],
-          "acceptance": [
-            {
-              "behavioral": "a test file exists at src/services/__tests__/AgentRunner.test.ts",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "a roundtrip test decodes a NDJSON fixture with one event per AgentEvent variant via decodeAgentEventLine and Schema.decodeUnknown(AgentEventSchema) yielding the same result without loss of known fields",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "decodeAgentEventLine, Schema.decodeUnknown(AgentEventSchema)"
-              }
-            },
-            {
-              "behavioral": "a test with scripted Composer ok and Reviewer with evalFileContent produces result.subtype === 'success' for both and the Composer jsonl log, Reviewer jsonl log, and EVAL_RESULT.md all exist on disk",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "tests assert that Composer maxTurns exit yields { _tag: 'AgentMaxTurnsExceeded', role: 'Composer' } and Reviewer maxTurns exit yields { _tag: 'AgentMaxTurnsExceeded', role: 'Reviewer' }",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "{ _tag: 'AgentMaxTurnsExceeded', role: 'Composer' }"
-              }
-            },
-            {
-              "behavioral": "tests use BunContext.layer for FileSystem and create tmp dirs under .tap/tmp/agentrunner-test-<uuid>/ with cleanup in afterEach/afterAll",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "BunContext.layer, @effect/platform-bun"
-              }
-            },
-            {
-              "behavioral": "the test file contains no any or as unknown as; brand construction uses a brand<B>(s) helper with a single as cast",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "brand<B>(s)"
-              }
-            },
-            {
-              "behavioral": "AgentRunner.test.ts does not call AgentRunnerLive or spawn any real claude subprocess",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "bun test src/services/__tests__/AgentRunner.test.ts exits 0 with 5 tests passing; full bun test suite exits 0 with 14 tests and 96 expect calls",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
           ],
           "depends_on": [
             "S5.T1",
@@ -1251,86 +328,12 @@
     {
       "id": "S6",
       "title": "RunTask orchestration (the vertical slice)",
-      "acceptance": [
-        {
-          "behavioral": "runTask(task, feature, paths) succeeds with TaskResult when Reviewer returns PASS and fails with a tagged RunTaskError union variant on any pipeline failure",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "Some",
-            "value": "runTask, TaskResult, RunTaskError"
-          }
-        },
-        {
-          "behavioral": "an integration test at src/services/__tests__/RunTask.test.ts demonstrates the PASS path using AgentRunnerEcho, ContextEngineLive, and EvalParserLive",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "Some",
-            "value": "AgentRunnerEcho, ContextEngineLive, EvalParserLive"
-          }
-        },
-        {
-          "behavioral": "tests for Composer max turns, Composer spawn fail, EvalResultMissing, and EvalParseFailed each surface the correct _tag value",
-          "mechanism": {
-            "_id": "Option",
-            "_tag": "None"
-          }
-        }
-      ],
       "tasks": [
         {
           "id": "S6.T1",
           "title": "Implement runTask orchestration",
           "files": [
             "src/services/RunTask.ts"
-          ],
-          "acceptance": [
-            {
-              "behavioral": "src/services/RunTask.ts exports runTask with the Effect signature runTask(task: Task, feature: Feature, paths: RunTaskPaths): Effect<TaskResult, RunTaskError, AgentRunner | ContextEngine | EvalParser | FileSystem> and RunTaskPaths with AbsolutePath fields featureRoot, specsPath, contractPath",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "runTask(task: Task, feature: Feature, paths: RunTaskPaths): Effect<TaskResult, RunTaskError, AgentRunner | ContextEngine | EvalParser | FileSystem>"
-              }
-            },
-            {
-              "behavioral": "runTask executes steps in order: compute log/eval paths from paths and attempt (iter-NNN zero-padded); Clock.currentTimeMillis for start; fs.makeDirectory({ recursive: true }) for logs and eval dirs; render Composer contract; invoke AgentRunner for Composer; render Reviewer contract with evalPath; invoke AgentRunner for Reviewer; fs.exists check on eval path; parse with EvalParser; Clock end; assemble TaskResult with branded paths and durationMs",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "Clock.currentTimeMillis, fs.makeDirectory({ recursive: true }), Option.none(), fs.exists, durationMs"
-              }
-            },
-            {
-              "behavioral": "runTask never surfaces raw Effect errors; all FS boundary errors from makeDirectory, readFileString, and exists are mapped to FilesystemError with branded path",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "FilesystemError with branded path"
-              }
-            },
-            {
-              "behavioral": "RunTask.ts imports filesystemError from ./AgentRunner and that constructor is re-exported from src/services/index.ts",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "filesystemError from ./AgentRunner, src/services/index.ts"
-              }
-            },
-            {
-              "behavioral": "RunTask.ts contains no any or as unknown as; a single brand<B>(s) helper with one as cast brands six path outputs",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "brand<B>(s)"
-              }
-            },
-            {
-              "behavioral": "bunx tsc --noEmit exits 0",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
           ],
           "depends_on": [
             "S1.T3",
@@ -1352,78 +355,6 @@
           "title": "Integration test for runTask",
           "files": [
             "src/services/__tests__/RunTask.test.ts"
-          ],
-          "acceptance": [
-            {
-              "behavioral": "a test file exists at src/services/__tests__/RunTask.test.ts",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            },
-            {
-              "behavioral": "the PASS test fixture yields TaskResult with verdict='PASS', issues=[], durationMs >= 0, taskId === task.id, attempt === paths.attempt, and all three log/eval paths exist on disk verified via fs.exists",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "verdict='PASS', fs.exists"
-              }
-            },
-            {
-              "behavioral": "the FAIL test fixture yields TaskResult with verdict='FAIL' and two EvalIssues with acceptance_failed mapped to acceptanceFailed and suggested_fix mapped to suggestedFix and file branded as AbsolutePath",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "verdict='FAIL', AbsolutePath brand"
-              }
-            },
-            {
-              "behavioral": "the max-turns test fixture fails with { _tag: 'AgentMaxTurnsExceeded', role: 'Composer' } and the Reviewer log path does not exist on disk",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "{ _tag: 'AgentMaxTurnsExceeded', role: 'Composer' }"
-              }
-            },
-            {
-              "behavioral": "a fixture where Reviewer returns ok but no EVAL_RESULT.md exists fails with EvalResultMissing with expectedPath equal to <featureRoot>/eval/EVAL_RESULT.md",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "EvalResultMissing, expectedPath"
-              }
-            },
-            {
-              "behavioral": "a fixture where Reviewer writes malformed YAML in <eval:issues> fails with EvalParseFailed with rawContent populated verbatim",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "EvalParseFailed, rawContent"
-              }
-            },
-            {
-              "behavioral": "the test uses the layer composition Layer.provideMerge(ContextEngineLive, BunContext.layer).pipe(Layer.merge(EvalParserLive), Layer.merge(AgentRunnerEcho(script)), Layer.provideMerge(BunContext.layer))",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "Layer.provideMerge(ContextEngineLive, BunContext.layer).pipe(Layer.merge(EvalParserLive), Layer.merge(AgentRunnerEcho(script)), Layer.provideMerge(BunContext.layer))"
-              }
-            },
-            {
-              "behavioral": "the test file contains no any or as unknown as; brand construction uses a brand<B>(s) helper with a single as cast",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "Some",
-                "value": "brand<B>(s)"
-              }
-            },
-            {
-              "behavioral": "bun test src/services/__tests__/RunTask.test.ts exits 0 with 5 tests; full bun test suite exits 0 with 19 tests across 4 files and 126 expect calls",
-              "mechanism": {
-                "_id": "Option",
-                "_tag": "None"
-              }
-            }
           ],
           "depends_on": [
             "S6.T1",

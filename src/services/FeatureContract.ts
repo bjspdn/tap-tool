@@ -13,41 +13,11 @@ export const AbsolutePathSchema = Schema.String.pipe(Schema.filter((_s): _s is A
 
 export const TaskStatusSchema = Schema.Literal("pending", "in_progress", "done", "failed");
 
-/*
-@contract-deviation
-{
-  "criterion_ref": "S1.T3.acceptance[0]",
-  "invalidity": "criterion-conflict",
-  "evidence": "S1.T3 acceptance[0] prescribes Schema.OptionFromNullOr(Schema.String). S1.T3 acceptance[1] requires two dual-form decode tests that feed Effect Option JSON wire shapes ({\"_id\":\"Option\",\"_tag\":\"None\"} and {\"_id\":\"Option\",\"_tag\":\"Some\",\"value\":\"...\"}) directly to AcceptanceCriterionSchema. Schema.OptionFromNullOr decodes only null → None; it rejects the Effect Option JSON form, so both decode tests fail. Additionally, the save→load roundtrip test (FeatureContract.test.ts lines 261–310) writes a Feature containing Option.none() via fc.save; JSON.stringify(Option.none()) produces {\"_id\":\"Option\",\"_tag\":\"None\"}, which Schema.OptionFromNullOr cannot decode on the subsequent fc.load. Using Schema.OptionFromNullOr satisfies acceptance[0] but breaks acceptance[1].",
-  "substitution": "Schema.Option(Schema.String) — decodes the Effect Option JSON wire format ({\"_id\":\"Option\",\"_tag\":\"None\"} and {\"_id\":\"Option\",\"_tag\":\"Some\",\"value\":\"...\"}) required by the criterion-1 tests and the roundtrip test. Legacy plain-string criteria are still rejected; the Schema.Union wrapper is still absent.",
-  "behavioral_preserved_ref": "S1.T3.acceptance[1]"
-}
-*/
-
-/*
-@contract-deviation
-{
-  "criterion_ref": "S1.T3.acceptance[2]",
-  "invalidity": "global-constraint-conflict",
-  "evidence": "S1.T3.task.files lists only src/services/FeatureContract.ts, src/services/__tests__/FeatureContract.test.ts, and src/services/LoopRunner/__tests__/LoopRunner.smoke.test.ts. Acceptance[2] requires all three .tap/features/<slug>/FEATURE_CONTRACT.json files to decode under Schema.Option. Schema.Option rejects null; S1.T2 encoded every mechanism field as null when no mechanism was present. Satisfying acceptance[2] requires re-encoding those null values to Effect Option wire format ({\"_id\":\"Option\",\"_tag\":\"None\"}) in .tap/features/composer-reviewer/FEATURE_CONTRACT.json and .tap/features/loop-runner/FEATURE_CONTRACT.json — both outside task.files. The task-files scope constraint directly conflicts with acceptance[2].",
-  "substitution": "Re-encoded mechanism: null to {\"_id\":\"Option\",\"_tag\":\"None\"} in .tap/features/composer-reviewer/FEATURE_CONTRACT.json and .tap/features/loop-runner/FEATURE_CONTRACT.json so all three contracts decode under Schema.Option.",
-  "behavioral_preserved_ref": "S1.T3.acceptance[2]"
-}
-*/
-// Strict dual-form only (S1.T3). Schema.Option decodes the Effect Option JSON wire
-// format produced by JSON.stringify(Option.none()/Option.some(...)). Legacy plain-string
-// criteria are rejected because Schema.Struct does not accept bare strings.
-export const AcceptanceCriterionSchema = Schema.Struct({
-  behavioral: Schema.String,
-  mechanism: Schema.Option(Schema.String),
-});
-
 export const TaskSchema = Schema.Struct({
   id: TaskIdSchema,
   title: Schema.String,
-  description: Schema.optional(Schema.String),
+  description: Schema.String,
   files: Schema.Array(AbsolutePathSchema),
-  acceptance: Schema.Array(AcceptanceCriterionSchema),
   depends_on: Schema.Array(TaskIdSchema),
   status: TaskStatusSchema,
   attempts: Schema.Number,
@@ -57,15 +27,14 @@ export const TaskSchema = Schema.Struct({
 export const StorySchema = Schema.Struct({
   id: StoryIdSchema,
   title: Schema.String,
-  description: Schema.optional(Schema.String),
-  acceptance: Schema.Array(AcceptanceCriterionSchema),
+  description: Schema.String,
   tasks: Schema.Array(TaskSchema),
 });
 
 export const FeatureSchema = Schema.Struct({
   feature: Schema.String,
   goal: Schema.String,
-  description: Schema.optional(Schema.String),
+  description: Schema.String,
   constraints: Schema.Array(Schema.String),
   stories: Schema.Array(StorySchema),
 });
