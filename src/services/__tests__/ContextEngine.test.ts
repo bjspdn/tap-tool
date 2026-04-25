@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { Effect, Exit, Option } from "effect";
-import { makeContextEngine } from "../ContextEngine";
+import { makeContextEngine, extractDepthSection } from "../ContextEngine";
 
 /** Brand a raw string as a nominal subtype for test fixtures. */
 const brand = <B extends string>(s: string): string & { readonly __brand: B } =>
@@ -183,5 +183,116 @@ describe("ContextEngine", () => {
       engine.renderComposer(makeComposerInput({ priorEval: Option.none() })),
     );
     expect(withoutPrior).not.toContain(evalPath as string);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractDepthSection
+// ---------------------------------------------------------------------------
+
+describe("extractDepthSection", () => {
+  test("absent — content has no depth tags → Option.none()", async () => {
+    const content = "# SPECS\n\nSome feature text with no depth section.";
+    const result = await Effect.runPromise(extractDepthSection(content));
+    expect(Option.isNone(result)).toBe(true);
+  });
+
+  test("present — well-formed block → Option.some(inner content)", async () => {
+    const inner = "## Module: foo\n- Path: src/foo.ts\n- Entry points: bar()";
+    const content = `# SPECS\n\n<feature:depth>\n${inner}\n</feature:depth>\n\nmore text`;
+    const result = await Effect.runPromise(extractDepthSection(content));
+    expect(Option.isSome(result)).toBe(true);
+    if (Option.isSome(result)) {
+      expect(result.value).toBe(inner.trim());
+    }
+  });
+
+  test("present — inner content is trimmed of leading/trailing whitespace", async () => {
+    const content = "<feature:depth>   \n  inner content  \n   </feature:depth>";
+    const result = await Effect.runPromise(extractDepthSection(content));
+    expect(Option.isSome(result)).toBe(true);
+    if (Option.isSome(result)) {
+      expect(result.value).toBe("inner content");
+    }
+  });
+
+  test("malformed — open tag without close tag → DepthParseError", async () => {
+    const content = "text before <feature:depth> some unclosed content";
+    const exit = await Effect.runPromiseExit(extractDepthSection(content));
+    expect(Exit.isFailure(exit)).toBe(true);
+    if (Exit.isFailure(exit) && exit.cause._tag === "Fail") {
+      const err = exit.cause.error;
+      expect(err._tag).toBe("DepthParseError");
+      expect(err.message).toMatch(/opened at index/);
+    }
+  });
+
+  test("malformed — close tag without open tag → DepthParseError", async () => {
+    const content = "no open tag here </feature:depth> end";
+    const exit = await Effect.runPromiseExit(extractDepthSection(content));
+    expect(Exit.isFailure(exit)).toBe(true);
+    if (Exit.isFailure(exit) && exit.cause._tag === "Fail") {
+      const err = exit.cause.error;
+      expect(err._tag).toBe("DepthParseError");
+      expect(err.message).toMatch(/without a preceding/);
+    }
+  });
+
+  test("malformed — close tag before open tag → DepthParseError", async () => {
+    const content = "</feature:depth> some text <feature:depth> content";
+    const exit = await Effect.runPromiseExit(extractDepthSection(content));
+    expect(Exit.isFailure(exit)).toBe(true);
+    if (Exit.isFailure(exit) && exit.cause._tag === "Fail") {
+      const err = exit.cause.error;
+      expect(err._tag).toBe("DepthParseError");
+      expect(err.message).toMatch(/precedes/);
+    }
+  });
+
+  test("depth_section injected into renderComposer via readFile", async () => {
+    const depthContent = "## Module: myMod\n- Entry points: doThing()";
+    const specsContent = `<feature:depth>\n${depthContent}\n</feature:depth>`;
+
+    // Use a minimal template that references depth_section
+    const composerSrc =
+      "specs={{specs_path}} depth={{{depth_section}}} prior={{prior_eval_path}} status={{{git_status}}}";
+    const reviewerSrc = "specs={{specs_path}} depth={{{depth_section}}} eval={{{eval_path}}}";
+
+    const readFile = (_path: string) => Effect.succeed(specsContent);
+    const engine = makeContextEngine(composerSrc, reviewerSrc, readFile);
+
+    const rendered = await Effect.runPromise(engine.renderComposer(makeComposerInput()));
+    expect(rendered).toContain(depthContent.trim());
+  });
+
+  test("depth_section injected into renderReviewer via readFile", async () => {
+    const depthContent = "## Module: reviewMod\n- Entry points: check()";
+    const specsContent = `<feature:depth>\n${depthContent}\n</feature:depth>`;
+
+    const composerSrc = "c={{specs_path}} d={{{depth_section}}} p={{prior_eval_path}} s={{{git_status}}}";
+    const reviewerSrc = "specs={{specs_path}} depth={{{depth_section}}} eval={{{eval_path}}}";
+
+    const readFile = (_path: string) => Effect.succeed(specsContent);
+    const engine = makeContextEngine(composerSrc, reviewerSrc, readFile);
+
+    const rendered = await Effect.runPromise(engine.renderReviewer(makeReviewerInput()));
+    expect(rendered).toContain(depthContent.trim());
+  });
+
+  test("malformed depth section surfaces as TemplateRenderFailed in renderComposer", async () => {
+    const badSpecs = "<feature:depth> content with no closing tag";
+    const composerSrc = "specs={{specs_path}} depth={{{depth_section}}} p={{prior_eval_path}} s={{{git_status}}}";
+    const reviewerSrc = "r={{specs_path}}";
+
+    const readFile = (_path: string) => Effect.succeed(badSpecs);
+    const engine = makeContextEngine(composerSrc, reviewerSrc, readFile);
+
+    const exit = await Effect.runPromiseExit(engine.renderComposer(makeComposerInput()));
+    expect(Exit.isFailure(exit)).toBe(true);
+    if (Exit.isFailure(exit) && exit.cause._tag === "Fail") {
+      const err = exit.cause.error as TemplateRenderError;
+      expect(err._tag).toBe("TemplateRenderFailed");
+      expect(err.template).toContain("depth section");
+    }
   });
 });
