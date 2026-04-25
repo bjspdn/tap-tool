@@ -23,4 +23,10 @@ declare global {
     readonly tasksFailed: ReadonlyArray<TaskId>;
     readonly tasksPending: ReadonlyArray<TaskId>;
   }
+
+  type Decision =
+    | { _tag: "Pass" }
+    | { _tag: "Retry" }
+    | { _tag: "Exhausted" }
+    | { _tag: "RateLimited"; role: AgentRole; resetsAt: number };
 }
