@@ -5,6 +5,7 @@ import Handlebars from "handlebars";
 // Template paths relative to the repo root (the Effect cwd during normal use and tests).
 const COMPOSER_TEMPLATE_PATH = ".tap/prompts/COMPOSER_CONTRACT.md";
 const REVIEWER_TEMPLATE_PATH = ".tap/prompts/REVIEWER_CONTRACT.md";
+const SUMMARIZER_TEMPLATE_PATH = ".tap/prompts/SUMMARIZER_CONTRACT.md";
 
 // ---------------------------------------------------------------------------
 // Depth-section extractor
@@ -74,6 +75,27 @@ export const extractDepthSection = (
 };
 
 // ---------------------------------------------------------------------------
+// SummarizerRenderInput
+// ---------------------------------------------------------------------------
+
+/**
+ * Input to `renderSummarizer`. Parallel shape to `ComposerRenderInput` and
+ * `ReviewerRenderInput`. The caller is responsible for formatting `stoppedReason`
+ * from the `StoppedReason` discriminated union into a human-readable string.
+ */
+export type SummarizerRenderInput = {
+  readonly feature: Feature;
+  readonly specsPath: AbsolutePath;
+  readonly contractPath: AbsolutePath;
+  /** Absolute path where SUMMARY.md should be written by the Summarizer agent. */
+  readonly summaryPath: AbsolutePath;
+  /** Human-readable representation of the terminal `StoppedReason` variant. */
+  readonly stoppedReason: string;
+  readonly tasksDone: ReadonlyArray<TaskId>;
+  readonly tasksFailed: ReadonlyArray<TaskId>;
+};
+
+// ---------------------------------------------------------------------------
 // ContextEngine service
 // ---------------------------------------------------------------------------
 
@@ -90,6 +112,12 @@ export class ContextEngine extends Context.Tag("ContextEngine")<
     readonly renderReviewer: (
       input: ReviewerRenderInput,
     ) => Effect.Effect<string, TemplateRenderError>;
+    // Optional so that existing ContextEngine mocks in LoopRunner tests that
+    // only stub renderComposer + renderReviewer continue to compile. The live
+    // layer and makeContextEngine always provide a full implementation.
+    readonly renderSummarizer?: (
+      input: SummarizerRenderInput,
+    ) => Effect.Effect<string, TemplateRenderError>;
   }
 >() {}
 
@@ -105,15 +133,21 @@ export class ContextEngine extends Context.Tag("ContextEngine")<
  * @param readFile - Optional file reader used to load SPECS.md content for
  *   `{{depth_section}}` injection. Defaults to returning empty string (no depth
  *   section) when omitted — suitable for tests that don't exercise depth parsing.
+ * @param getGitDiff - Optional shell-out for the `{{git_diff}}` placeholder injected
+ *   into the Summarizer template. Defaults to empty string — suitable for tests that
+ *   don't exercise git diff output.
  */
 export const makeContextEngine = (
   composerSrc: string,
   reviewerSrc: string,
+  summarizerSrc: string,
   readFile: (path: string) => Effect.Effect<string, never> = (_path) =>
     Effect.succeed(""),
+  getGitDiff: () => Effect.Effect<string, never> = () => Effect.succeed(""),
 ): ContextEngine["Type"] => {
   const composerTpl = Handlebars.compile(composerSrc, { strict: true });
   const reviewerTpl = Handlebars.compile(reviewerSrc, { strict: true });
+  const summarizerTpl = Handlebars.compile(summarizerSrc, { strict: true });
 
   const resolveDepthSection = (
     specsPath: string,
@@ -152,13 +186,24 @@ export const makeContextEngine = (
           toReviewerContext(input, depthSection),
         );
       }),
+
+    renderSummarizer: (input) =>
+      Effect.gen(function* () {
+        const depthSection = yield* resolveDepthSection(input.specsPath as string);
+        const gitDiff = yield* getGitDiff();
+        return yield* tryRender(
+          "SUMMARIZER_CONTRACT.md",
+          summarizerTpl,
+          toSummarizerContext(input, depthSection, gitDiff),
+        );
+      }),
   });
 };
 
 /**
- * Live layer for ContextEngine — reads COMPOSER_CONTRACT.md and REVIEWER_CONTRACT.md
- * once from the filesystem, compiles them with Handlebars strict mode, and exposes
- * the two render methods.
+ * Live layer for ContextEngine — reads COMPOSER_CONTRACT.md, REVIEWER_CONTRACT.md,
+ * and SUMMARIZER_CONTRACT.md once from the filesystem, compiles them with Handlebars
+ * strict mode, and exposes the three render methods.
  */
 export const ContextEngineLive = Layer.effect(
   ContextEngine,
@@ -166,13 +211,26 @@ export const ContextEngineLive = Layer.effect(
     const fs = yield* FileSystem.FileSystem;
     const composerSrc = yield* fs.readFileString(COMPOSER_TEMPLATE_PATH);
     const reviewerSrc = yield* fs.readFileString(REVIEWER_TEMPLATE_PATH);
+    const summarizerSrc = yield* fs.readFileString(SUMMARIZER_TEMPLATE_PATH);
 
     // Read specs file content for depth-section injection; default to empty
     // string when the file cannot be read (missing file = no depth section).
     const readFile = (path: string): Effect.Effect<string, never> =>
       fs.readFileString(path).pipe(Effect.catchAll(() => Effect.succeed("")));
 
-    return makeContextEngine(composerSrc, reviewerSrc, readFile);
+    // Shell out to get the git diff at render time; fall back to empty string on error.
+    const getGitDiff = (): Effect.Effect<string, never> =>
+      Effect.tryPromise(async () => {
+        const proc = Bun.spawn(["git", "diff", "HEAD"], {
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+        const stdout = await new Response(proc.stdout).text();
+        await proc.exited;
+        return stdout;
+      }).pipe(Effect.catchAll(() => Effect.succeed("")));
+
+    return makeContextEngine(composerSrc, reviewerSrc, summarizerSrc, readFile, getGitDiff);
   }),
 );
 
@@ -218,6 +276,22 @@ const toReviewerContext = (input: ReviewerRenderInput, depthSection: string) => 
     depth_section: depthSection,
   };
 };
+
+const toSummarizerContext = (
+  input: SummarizerRenderInput,
+  depthSection: string,
+  gitDiff: string,
+) => ({
+  feature_description: input.feature.description ?? input.feature.goal,
+  specs_path: input.specsPath as string,
+  contract_path: input.contractPath as string,
+  summary_path: input.summaryPath as string,
+  stopped_reason: input.stoppedReason,
+  tasks_done: input.tasksDone as readonly string[],
+  tasks_failed: input.tasksFailed as readonly string[],
+  depth_section: depthSection,
+  git_diff: gitDiff,
+});
 
 // --- tryRender: translate Handlebars throws into TemplateRenderError ---
 

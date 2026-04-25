@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { Effect, Exit, Option } from "effect";
-import { makeContextEngine, extractDepthSection } from "../ContextEngine";
+import { makeContextEngine, extractDepthSection, type SummarizerRenderInput } from "../ContextEngine";
 
 /** Brand a raw string as a nominal subtype for test fixtures. */
 const brand = <B extends string>(s: string): string & { readonly __brand: B } =>
@@ -65,6 +65,19 @@ const makeReviewerInput = (overrides: Partial<ReviewerRenderInput> = {}): Review
   ...overrides,
 });
 
+const makeSummarizerInput = (
+  overrides: Partial<SummarizerRenderInput> = {},
+): SummarizerRenderInput => ({
+  feature: makeFeature(),
+  specsPath: brand<"AbsolutePath">(".tap/features/composer-reviewer/SPECS.md"),
+  contractPath: brand<"AbsolutePath">(".tap/features/composer-reviewer/FEATURE_CONTRACT.json"),
+  summaryPath: brand<"AbsolutePath">(".tap/features/composer-reviewer/SUMMARY.md"),
+  stoppedReason: "AllDone",
+  tasksDone: [brand<"TaskId">("S3.T1")],
+  tasksFailed: [],
+  ...overrides,
+});
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -73,7 +86,7 @@ describe("ContextEngine", () => {
   test("Fixture renders verbatim — production COMPOSER template", async () => {
     const composerSrc = await Bun.file(".tap/prompts/COMPOSER_CONTRACT.md").text();
     const reviewerSrc = await Bun.file(".tap/prompts/REVIEWER_CONTRACT.md").text();
-    const engine = makeContextEngine(composerSrc, reviewerSrc);
+    const engine = makeContextEngine(composerSrc, reviewerSrc, "");
 
     const task = makeTask();
     const feature = makeFeature();
@@ -111,7 +124,7 @@ describe("ContextEngine", () => {
   test("Missing placeholder raises TemplateRenderFailed with correct missingKey", async () => {
     const badComposerSrc = "Hello {{ mystery_field }} world";
     const reviewerSrc = await Bun.file(".tap/prompts/REVIEWER_CONTRACT.md").text();
-    const engine = makeContextEngine(badComposerSrc, reviewerSrc);
+    const engine = makeContextEngine(badComposerSrc, reviewerSrc, "");
 
     const exit = await Effect.runPromiseExit(engine.renderComposer(makeComposerInput()));
 
@@ -133,7 +146,7 @@ describe("ContextEngine", () => {
   test("User text containing {{ does not break the render", async () => {
     const composerSrc = await Bun.file(".tap/prompts/COMPOSER_CONTRACT.md").text();
     const reviewerSrc = await Bun.file(".tap/prompts/REVIEWER_CONTRACT.md").text();
-    const engine = makeContextEngine(composerSrc, reviewerSrc);
+    const engine = makeContextEngine(composerSrc, reviewerSrc, "");
 
     const trickyTitle = "Use {{ braces }} in title";
 
@@ -156,7 +169,7 @@ describe("ContextEngine", () => {
     const composerSrc = "task={{task_id}} <noop>";
     const reviewerSrc =
       "task={{task_id}} title={{{task_title}}} desc={{{task_description}}} eval={{{eval_path}}} <eval:verdict>";
-    const engine = makeContextEngine(composerSrc, reviewerSrc);
+    const engine = makeContextEngine(composerSrc, reviewerSrc, "");
 
     const input = makeReviewerInput();
     const result = await Effect.runPromise(engine.renderReviewer(input));
@@ -168,7 +181,7 @@ describe("ContextEngine", () => {
   test("priorEvalPath threading via Option.some(...) — path appears; Option.none() path absent", async () => {
     const composerSrc = await Bun.file(".tap/prompts/COMPOSER_CONTRACT.md").text();
     const reviewerSrc = await Bun.file(".tap/prompts/REVIEWER_CONTRACT.md").text();
-    const engine = makeContextEngine(composerSrc, reviewerSrc);
+    const engine = makeContextEngine(composerSrc, reviewerSrc, "");
 
     const evalPath = brand<"AbsolutePath">("/some/eval/path.md");
 
@@ -259,7 +272,7 @@ describe("extractDepthSection", () => {
     const reviewerSrc = "specs={{specs_path}} depth={{{depth_section}}} eval={{{eval_path}}}";
 
     const readFile = (_path: string) => Effect.succeed(specsContent);
-    const engine = makeContextEngine(composerSrc, reviewerSrc, readFile);
+    const engine = makeContextEngine(composerSrc, reviewerSrc, "", readFile);
 
     const rendered = await Effect.runPromise(engine.renderComposer(makeComposerInput()));
     expect(rendered).toContain(depthContent.trim());
@@ -273,7 +286,7 @@ describe("extractDepthSection", () => {
     const reviewerSrc = "specs={{specs_path}} depth={{{depth_section}}} eval={{{eval_path}}}";
 
     const readFile = (_path: string) => Effect.succeed(specsContent);
-    const engine = makeContextEngine(composerSrc, reviewerSrc, readFile);
+    const engine = makeContextEngine(composerSrc, reviewerSrc, "", readFile);
 
     const rendered = await Effect.runPromise(engine.renderReviewer(makeReviewerInput()));
     expect(rendered).toContain(depthContent.trim());
@@ -285,9 +298,79 @@ describe("extractDepthSection", () => {
     const reviewerSrc = "r={{specs_path}}";
 
     const readFile = (_path: string) => Effect.succeed(badSpecs);
-    const engine = makeContextEngine(composerSrc, reviewerSrc, readFile);
+    const engine = makeContextEngine(composerSrc, reviewerSrc, "", readFile);
 
     const exit = await Effect.runPromiseExit(engine.renderComposer(makeComposerInput()));
+    expect(Exit.isFailure(exit)).toBe(true);
+    if (Exit.isFailure(exit) && exit.cause._tag === "Fail") {
+      const err = exit.cause.error as TemplateRenderError;
+      expect(err._tag).toBe("TemplateRenderFailed");
+      expect(err.template).toContain("depth section");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// renderSummarizer
+// ---------------------------------------------------------------------------
+
+describe("renderSummarizer", () => {
+  test("Fixture renders verbatim — production SUMMARIZER template", async () => {
+    const summarizerSrc = await Bun.file(".tap/prompts/SUMMARIZER_CONTRACT.md").text();
+    const engine = makeContextEngine("c={{task_id}}", "r={{task_id}}", summarizerSrc);
+
+    const input = makeSummarizerInput();
+    const result = await Effect.runPromise(engine.renderSummarizer!(input));
+
+    // feature description appears
+    expect(result).toContain(input.feature.description ?? input.feature.goal);
+    // reference paths appear
+    expect(result).toContain(input.specsPath as string);
+    expect(result).toContain(input.contractPath as string);
+    expect(result).toContain(input.summaryPath as string);
+    // stopped reason appears
+    expect(result).toContain(input.stoppedReason);
+    // completed task ID appears
+    for (const taskId of input.tasksDone) {
+      expect(result).toContain(taskId as string);
+    }
+  });
+
+  test("depth_section injected into renderSummarizer via readFile", async () => {
+    const depthContent = "## Module: summMod\n- Entry points: summarize()";
+    const specsContent = `<feature:depth>\n${depthContent}\n</feature:depth>`;
+
+    const summarizerSrc =
+      "depth={{{depth_section}}} summary={{summary_path}} stopped={{stopped_reason}} diff={{{git_diff}}}";
+
+    const readFile = (_path: string) => Effect.succeed(specsContent);
+    const engine = makeContextEngine("", "", summarizerSrc, readFile);
+
+    const rendered = await Effect.runPromise(engine.renderSummarizer!(makeSummarizerInput()));
+    expect(rendered).toContain(depthContent.trim());
+  });
+
+  test("git_diff injected into renderSummarizer via getGitDiff", async () => {
+    const fakeDiff = "diff --git a/src/foo.ts b/src/foo.ts\n+const x = 1;";
+    const summarizerSrc =
+      "depth={{{depth_section}}} summary={{summary_path}} stopped={{stopped_reason}} diff={{{git_diff}}}";
+
+    const getGitDiff = () => Effect.succeed(fakeDiff);
+    const engine = makeContextEngine("", "", summarizerSrc, (_p) => Effect.succeed(""), getGitDiff);
+
+    const rendered = await Effect.runPromise(engine.renderSummarizer!(makeSummarizerInput()));
+    expect(rendered).toContain(fakeDiff);
+  });
+
+  test("malformed depth section surfaces as TemplateRenderFailed in renderSummarizer", async () => {
+    const badSpecs = "<feature:depth> content with no closing tag";
+    const summarizerSrc =
+      "depth={{{depth_section}}} summary={{summary_path}} stopped={{stopped_reason}} diff={{{git_diff}}}";
+
+    const readFile = (_path: string) => Effect.succeed(badSpecs);
+    const engine = makeContextEngine("", "", summarizerSrc, readFile);
+
+    const exit = await Effect.runPromiseExit(engine.renderSummarizer!(makeSummarizerInput()));
     expect(Exit.isFailure(exit)).toBe(true);
     if (Exit.isFailure(exit) && exit.cause._tag === "Fail") {
       const err = exit.cause.error as TemplateRenderError;
