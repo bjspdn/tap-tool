@@ -269,13 +269,13 @@ describe("FeatureContract", () => {
           {
             id: brand<"StoryId">("S1"),
             title: "Story 1",
-            acceptance: ["acc 1"],
+            acceptance: [{ behavioral: "acc 1", mechanism: Option.none() }],
             tasks: [
               {
                 id: brand<"TaskId">("S1.T1"),
                 title: "Task 1",
                 files: [brand<"AbsolutePath">("src/foo.ts")],
-                acceptance: ["task acc 1"],
+                acceptance: [{ behavioral: "task acc 1", mechanism: Option.none() }],
                 depends_on: [],
                 status: "pending",
                 attempts: 0,
@@ -427,19 +427,64 @@ describe("FeatureContract", () => {
   });
 
   // -------------------------------------------------------------------------
-  // AcceptanceCriterionSchema — dual-form lenient union
+  // AcceptanceCriterionSchema — strict dual-form (S1.T3)
   // -------------------------------------------------------------------------
 
   describe("AcceptanceCriterionSchema", () => {
-    test("legacy single-string criterion decodes", () => {
-      const result = Schema.decodeUnknownSync(AcceptanceCriterionSchema)("some criterion");
-      expect(result).toBe("some criterion");
+    test("legacy single-string criterion fails decoding with ContractSchemaFailed", async () => {
+      const p = brand<"AbsolutePath">(`${tmpDir}/legacy-string-acceptance.json`);
+      const legacyContract = {
+        feature: "test",
+        goal: "test goal",
+        constraints: [],
+        stories: [
+          {
+            id: "S1",
+            title: "Story 1",
+            acceptance: [],
+            tasks: [
+              {
+                id: "T1",
+                title: "Task 1",
+                files: [],
+                acceptance: ["legacy string criterion"],
+                depends_on: [],
+                status: "pending",
+                attempts: 0,
+                maxAttempts: 3,
+              },
+            ],
+          },
+        ],
+      };
+
+      await Effect.runPromise(
+        Effect.flatMap(FileSystem.FileSystem, (fs) =>
+          Effect.gen(function* () {
+            yield* ensureTmpDir(fs);
+            yield* fs.writeFileString(p, JSON.stringify(legacyContract));
+          }),
+        ).pipe(Effect.provide(BunContext.layer)),
+      );
+
+      const exit = await Effect.runPromiseExit(
+        Effect.flatMap(FeatureContract, (fc) => fc.load(p)).pipe(
+          Effect.provide(testLayer),
+        ),
+      );
+
+      expect(Exit.isFailure(exit)).toBe(true);
+      if (Exit.isFailure(exit) && exit.cause._tag === "Fail") {
+        expect(exit.cause.error._tag).toBe("ContractSchemaFailed");
+      } else {
+        throw new Error(`Unexpected exit shape: ${JSON.stringify(exit)}`);
+      }
     });
 
     test("dual-form struct with mechanism: Option.some() decodes", () => {
       const result = Schema.decodeUnknownSync(AcceptanceCriterionSchema)({
         behavioral: "the thing works",
-        mechanism: "via foo.ts",
+        mechanism: { _id: "Option", _tag: "Some", value: "via foo.ts" },
       });
       expect(result).toEqual({
         behavioral: "the thing works",
@@ -450,7 +495,7 @@ describe("FeatureContract", () => {
     test("dual-form struct with mechanism: Option.none() decodes", () => {
       const result = Schema.decodeUnknownSync(AcceptanceCriterionSchema)({
         behavioral: "the thing works",
-        mechanism: null,
+        mechanism: { _id: "Option", _tag: "None" },
       });
       expect(result).toEqual({
         behavioral: "the thing works",

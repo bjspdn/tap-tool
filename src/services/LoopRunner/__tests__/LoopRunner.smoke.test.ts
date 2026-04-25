@@ -1,5 +1,5 @@
 import { describe, test, expect, afterAll } from "bun:test";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Option } from "effect";
 import { FileSystem } from "@effect/platform";
 import { BunContext } from "@effect/platform-bun";
 import * as nodePath from "node:path";
@@ -83,7 +83,7 @@ const makeTask = (id: string, depends_on: string[] = []): Task => ({
   id: brand<"TaskId">(id),
   title: `Task ${id}`,
   files: [],
-  acceptance: ["Smoke test acceptance criterion."],
+  acceptance: [{ behavioral: "Smoke test acceptance criterion.", mechanism: Option.none() }],
   depends_on: depends_on.map((d) => brand<"TaskId">(d)),
   status: "pending",
   attempts: 0,

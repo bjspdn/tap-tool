@@ -136,15 +136,16 @@
           "title": "Tighten AcceptanceCriterionSchema to reject legacy string form (strict final state)",
           "files": [
             "src/services/FeatureContract.ts",
-            "src/services/__tests__/FeatureContract.test.ts"
+            "src/services/__tests__/FeatureContract.test.ts",
+            "src/services/LoopRunner/__tests__/LoopRunner.smoke.test.ts"
           ],
           "acceptance": [
             {
-              "behavioral": "AcceptanceCriterionSchema is redefined as Schema.Struct({ behavioral: Schema.String, mechanism: Schema.OptionFromNullOr(Schema.String) }) with the Schema.Union wrapper removed so legacy string criteria no longer decode",
+              "behavioral": "AcceptanceCriterionSchema is redefined as Schema.Struct({ behavioral: Schema.String, mechanism: Schema.Option(Schema.String) }) with the Schema.Union wrapper removed so legacy string criteria no longer decode",
               "mechanism": {
                 "_id": "Option",
                 "_tag": "Some",
-                "value": "AcceptanceCriterionSchema = Schema.Struct({ behavioral: Schema.String, mechanism: Schema.OptionFromNullOr(Schema.String) })"
+                "value": "AcceptanceCriterionSchema = Schema.Struct({ behavioral: Schema.String, mechanism: Schema.Option(Schema.String) })"
               }
             },
             {
@@ -166,8 +167,8 @@
           "depends_on": [
             "S1.T2"
           ],
-          "status": "pending",
-          "attempts": 0,
+          "status": "in_progress",
+          "attempts": 2,
           "maxAttempts": 3
         }
       ]
