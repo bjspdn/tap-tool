@@ -32,12 +32,6 @@ Match the project's existing style. Test placement, error-handling idioms, type-
 
 </section>
 
-<section name="skills">
-
-The `tdd` skill activates when the task description names a test file: follow red-green-refactor. The `anti-patterns` skill activates before finalizing: check code shape (file length, duplication, nesting, naming) before exit.
-
-</section>
-
 <section name="verification">
 
 Identify and run every quality gate the project enforces before exiting. Discover them by inspecting CI configuration, the project's manifest or build config, any task-runner files at the root, and contributor documentation. Run every gate that applies: tests, typecheck, lint, build, format-check. If any gate fails, fix the errors and re-run. Do not exit with a red gate.
