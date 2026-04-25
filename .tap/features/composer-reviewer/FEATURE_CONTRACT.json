@@ -75,7 +75,8 @@
           "depends_on": [],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Add handlebars dependency"
         },
         {
           "id": "S1.T2",
@@ -133,7 +134,8 @@
           "depends_on": [],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Rename existing ambient type files to PascalCase"
         },
         {
           "id": "S1.T3",
@@ -186,7 +188,8 @@
           ],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Author Contract.d.ts (Task, Story, Feature) with branded ID + path types"
         },
         {
           "id": "S1.T4",
@@ -231,7 +234,8 @@
           ],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Extend AgentRunner.d.ts with AgentEvent + run signature"
         },
         {
           "id": "S1.T5",
@@ -275,7 +279,8 @@
           ],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Author RunTask.d.ts (TaskResult, EvalIssue, RunTaskError)"
         },
         {
           "id": "S1.T6",
@@ -323,9 +328,11 @@
           ],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Author ContextEngine.d.ts and EvalParser.d.ts"
         }
-      ]
+      ],
+      "description": "Foundation: dependency + shared type declarations"
     },
     {
       "id": "S2",
@@ -394,7 +401,8 @@
           "depends_on": [],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Author .claude/agents/Composer.md"
         },
         {
           "id": "S2.T2",
@@ -428,7 +436,8 @@
           "depends_on": [],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Author .claude/agents/Reviewer.md"
         },
         {
           "id": "S2.T3",
@@ -469,7 +478,8 @@
           "depends_on": [],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Author .claude/skills/tdd/SKILL.md"
         },
         {
           "id": "S2.T4",
@@ -510,7 +520,8 @@
           "depends_on": [],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Author .claude/skills/anti-patterns/SKILL.md"
         },
         {
           "id": "S2.T5",
@@ -552,7 +563,8 @@
           "depends_on": [],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Author .claude/skills/code-review/SKILL.md"
         },
         {
           "id": "S2.T6",
@@ -604,7 +616,8 @@
           "depends_on": [],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Author .tap/prompts/COMPOSER_CONTRACT.md"
         },
         {
           "id": "S2.T7",
@@ -655,9 +668,11 @@
           "depends_on": [],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Author .tap/prompts/REVIEWER_CONTRACT.md"
         }
-      ]
+      ],
+      "description": "Static content: sub-agent identities, skills, prompt templates"
     },
     {
       "id": "S3",
@@ -745,7 +760,8 @@
           ],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Implement ContextEngine.ts"
         },
         {
           "id": "S3.T2",
@@ -814,9 +830,11 @@
           ],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Tests for ContextEngine"
         }
-      ]
+      ],
+      "description": "ContextEngine service"
     },
     {
       "id": "S4",
@@ -899,7 +917,8 @@
           ],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Implement EvalParser.ts"
         },
         {
           "id": "S4.T2",
@@ -974,9 +993,11 @@
           ],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Tests for EvalParser"
         }
-      ]
+      ],
+      "description": "EvalParser service"
     },
     {
       "id": "S5",
@@ -1076,7 +1097,8 @@
           ],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Implement AgentRunnerLive"
         },
         {
           "id": "S5.T2",
@@ -1143,7 +1165,8 @@
           ],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Implement AgentRunnerEcho fake layer"
         },
         {
           "id": "S5.T3",
@@ -1219,9 +1242,11 @@
           ],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Tests for AgentRunner (Echo + schema roundtrip)"
         }
-      ]
+      ],
+      "description": "AgentRunner service"
     },
     {
       "id": "S6",
@@ -1319,7 +1344,8 @@
           ],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Implement runTask orchestration"
         },
         {
           "id": "S6.T2",
@@ -1406,9 +1432,12 @@
           ],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Integration test for runTask"
         }
-      ]
+      ],
+      "description": "RunTask orchestration (the vertical slice)"
     }
-  ]
+  ],
+  "description": "Deliver the Composer + Reviewer sub-agent vertical slice: identity files, per-role contract templates, supporting skills, and the Effect services (ContextEngine, AgentRunner, EvalParser) plus runTask orchestration, testable end-to-end with an echo-agent fake."
 }

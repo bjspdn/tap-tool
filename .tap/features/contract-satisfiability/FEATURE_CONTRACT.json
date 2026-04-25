@@ -76,7 +76,8 @@
           "depends_on": [],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Extend FeatureContract Schema + ambient Task type to accept dual-form criteria (lenient union)"
         },
         {
           "id": "S1.T2",
@@ -129,7 +130,8 @@
           ],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Migrate every acceptance string in all three FEATURE_CONTRACT.json files to dual-form"
         },
         {
           "id": "S1.T3",
@@ -169,9 +171,11 @@
           ],
           "status": "in_progress",
           "attempts": 2,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Tighten AcceptanceCriterionSchema to reject legacy string form (strict final state)"
         }
-      ]
+      ],
+      "description": "Dual-form criterion schema + migrate all existing contracts"
     },
     {
       "id": "S2",
@@ -229,9 +233,11 @@
           "depends_on": [],
           "status": "pending",
           "attempts": 0,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Author OPERATING_CONTRACT.md with shared rules and marker format"
         }
-      ]
+      ],
+      "description": "Author .tap/prompts/OPERATING_CONTRACT.md"
     },
     {
       "id": "S3",
@@ -295,7 +301,8 @@
           ],
           "status": "pending",
           "attempts": 0,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Extend ContextEngine contexts with operating_contract and validation_warnings fields; update templates"
         },
         {
           "id": "S3.T2",
@@ -342,9 +349,11 @@
           ],
           "status": "pending",
           "attempts": 0,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "RunTask loads OPERATING_CONTRACT.md and VALIDATION_RESULT.md at dispatch; threads them into render calls"
         }
-      ]
+      ],
+      "description": "ContextEngine render path + templates + loader"
     },
     {
       "id": "S4",
@@ -396,9 +405,11 @@
           ],
           "status": "pending",
           "attempts": 0,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Update .claude/agents/Composer.md with behavioral-obligation and substitution sections"
         }
-      ]
+      ],
+      "description": "Composer skill update — behavioral obligation + substitution permission"
     },
     {
       "id": "S5",
@@ -460,9 +471,11 @@
           ],
           "status": "pending",
           "attempts": 0,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Update .claude/skills/code-review/SKILL.md with dual-form classification + marker-validation subsection"
         }
-      ]
+      ],
+      "description": "Reviewer skill update — dual-form per-criterion check + marker reproduction"
     },
     {
       "id": "S6",
@@ -568,7 +581,8 @@
           ],
           "status": "pending",
           "attempts": 0,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Implement deterministic Validator check functions + CLI entry point"
         },
         {
           "id": "S6.T2",
@@ -626,7 +640,8 @@
           ],
           "status": "pending",
           "attempts": 0,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Mechanism-viability stack dispatch for TypeScript and Rust + unknown-stack fallback"
         },
         {
           "id": "S6.T3",
@@ -680,9 +695,11 @@
           ],
           "status": "pending",
           "attempts": 0,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Author Validator agent definition + contract-validation skill"
         }
-      ]
+      ],
+      "description": "Validator — services + agent + skill"
     },
     {
       "id": "S7",
@@ -743,9 +760,11 @@
           ],
           "status": "pending",
           "attempts": 0,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Add <validation_gate> section to tap-into SKILL.md after <convergence_check>"
         }
-      ]
+      ],
+      "description": "tap-into integration — <validation_gate> section"
     },
     {
       "id": "S8",
@@ -807,9 +826,12 @@
           ],
           "status": "pending",
           "attempts": 0,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Author smoke test for validate-contract.ts covering all finding categories"
         }
-      ]
+      ],
+      "description": "End-to-end smoke tests"
     }
-  ]
+  ],
+  "description": "Prevent contract-reality mismatches from reaching the Composer loop by introducing dual-form acceptance criteria, a shared OPERATING_CONTRACT.md rendered into both agent prompts, a structured @contract-deviation marker protocol, and a new Validator sub-agent invoked at tap-into authoring time."
 }

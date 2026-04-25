@@ -96,7 +96,8 @@
           "depends_on": [],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Populate LoopRunner.d.ts with LoopSummary stoppedReason discriminated union"
         },
         {
           "id": "S1.T2",
@@ -139,9 +140,11 @@
           "depends_on": [],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Author FeatureContract.d.ts with FeatureContractError tagged union"
         }
-      ]
+      ],
+      "description": "Ambient type additions"
     },
     {
       "id": "S2",
@@ -240,9 +243,11 @@
           "depends_on": [],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Promote runTask to a Tag with RunTaskLive; grow RunTaskPaths with priorEvalPath + gitStatus; thread into ComposerRenderInput; update bootstrap.ts to supply the new fields; update RunTask.test.ts to provide the Layer"
         }
-      ]
+      ],
+      "description": "RunTask Tag refactor + RunTaskPaths extension"
     },
     {
       "id": "S3",
@@ -323,9 +328,11 @@
           "depends_on": [],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Implement gitStatus helper + tests"
         }
-      ]
+      ],
+      "description": "gitStatus helper"
     },
     {
       "id": "S4",
@@ -401,9 +408,11 @@
           "depends_on": [],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Implement archive helper + tests"
         }
-      ]
+      ],
+      "description": "Archive helper"
     },
     {
       "id": "S5",
@@ -517,7 +526,8 @@
           ],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Declare FeatureSchema (Task, Story, Feature) with branded IDs via effect/Schema"
         },
         {
           "id": "S5.T2",
@@ -592,7 +602,8 @@
           ],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Implement FeatureContract Tag + FeatureContractLive + pure helpers (nextReady, markStatus, incrementAttempt, findCycle)"
         },
         {
           "id": "S5.T3",
@@ -684,9 +695,11 @@
           ],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Tests for FeatureContract"
         }
-      ]
+      ],
+      "description": "FeatureContract service"
     },
     {
       "id": "S6",
@@ -803,7 +816,8 @@
           ],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Implement LoopRunner Tag + LoopRunnerLive"
         },
         {
           "id": "S6.T2",
@@ -880,7 +894,8 @@
           ],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "LoopRunner scheduling tests (inline RunTaskFake Layer)"
         },
         {
           "id": "S6.T3",
@@ -949,7 +964,8 @@
           ],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "LoopRunner retry-state tests (priorEvalPath archiving, gitStatus, exhaustion)"
         },
         {
           "id": "S6.T4",
@@ -1010,9 +1026,11 @@
           ],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "LoopRunner end-to-end smoke test (real RunTaskLive + AgentRunnerEcho)"
         }
-      ]
+      ],
+      "description": "LoopRunner service"
     },
     {
       "id": "S7",
@@ -1111,9 +1129,12 @@
           ],
           "status": "done",
           "attempts": 1,
-          "maxAttempts": 3
+          "maxAttempts": 3,
+          "description": "Shrink scripts/bootstrap.ts to a shim over LoopRunner.run"
         }
-      ]
+      ],
+      "description": "Retire scripts/bootstrap.ts"
     }
-  ]
+  ],
+  "description": "Replace the ad-hoc driver at scripts/bootstrap.ts with an Effect-based LoopRunner service plus a schema-validated FeatureContract service. Closes the five limitations listed in bootstrap.ts L11-L15 and the two RunTask.ts L129/L130 TODOs blocking judged-retry. Ships as one vertical slice: FeatureContract + RunTask-as-Tag + LoopRunner + two helpers (gitStatus, archive) + bootstrap.ts shrunk to a 15-line shim."
 }

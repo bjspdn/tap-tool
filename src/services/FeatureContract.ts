@@ -45,6 +45,7 @@ export const AcceptanceCriterionSchema = Schema.Struct({
 export const TaskSchema = Schema.Struct({
   id: TaskIdSchema,
   title: Schema.String,
+  description: Schema.optional(Schema.String),
   files: Schema.Array(AbsolutePathSchema),
   acceptance: Schema.Array(AcceptanceCriterionSchema),
   depends_on: Schema.Array(TaskIdSchema),
@@ -56,6 +57,7 @@ export const TaskSchema = Schema.Struct({
 export const StorySchema = Schema.Struct({
   id: StoryIdSchema,
   title: Schema.String,
+  description: Schema.optional(Schema.String),
   acceptance: Schema.Array(AcceptanceCriterionSchema),
   tasks: Schema.Array(TaskSchema),
 });
@@ -63,6 +65,7 @@ export const StorySchema = Schema.Struct({
 export const FeatureSchema = Schema.Struct({
   feature: Schema.String,
   goal: Schema.String,
+  description: Schema.optional(Schema.String),
   constraints: Schema.Array(Schema.String),
   stories: Schema.Array(StorySchema),
 });

@@ -16,6 +16,7 @@ declare global {
   interface Task {
     readonly id: TaskId;
     readonly title: string;
+    readonly description?: string;
     readonly files: readonly AbsolutePath[];
     readonly acceptance: ReadonlyArray<AcceptanceCriterion>;
     readonly depends_on: readonly TaskId[];
@@ -27,6 +28,7 @@ declare global {
   interface Story {
     readonly id: StoryId;
     readonly title: string;
+    readonly description?: string;
     readonly acceptance: ReadonlyArray<AcceptanceCriterion>;
     readonly tasks: readonly Task[];
   }
@@ -34,6 +36,7 @@ declare global {
   interface Feature {
     readonly feature: string;
     readonly goal: string;
+    readonly description?: string;
     readonly constraints: readonly string[];
     readonly stories: readonly Story[];
   }

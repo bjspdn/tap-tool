@@ -427,6 +427,172 @@ describe("FeatureContract", () => {
   });
 
   // -------------------------------------------------------------------------
+  // description field — optional on Task, Story, Feature (S1.T1)
+  // -------------------------------------------------------------------------
+
+  describe("description field (optional)", () => {
+    test("task with description field decodes and preserves the string", async () => {
+      const p = brand<"AbsolutePath">(`${tmpDir}/task-with-description.json`);
+      const contract = {
+        feature: "test",
+        goal: "test goal",
+        constraints: [],
+        stories: [
+          {
+            id: "S1",
+            title: "Story 1",
+            acceptance: [],
+            tasks: [
+              {
+                id: "T1",
+                title: "Task 1",
+                description: "Add description field as Schema.optional to all three schemas.",
+                files: [],
+                acceptance: [],
+                depends_on: [],
+                status: "pending",
+                attempts: 0,
+                maxAttempts: 3,
+              },
+            ],
+          },
+        ],
+      };
+
+      await Effect.runPromise(
+        Effect.flatMap(FileSystem.FileSystem, (fs) =>
+          Effect.gen(function* () {
+            yield* ensureTmpDir(fs);
+            yield* fs.writeFileString(p, JSON.stringify(contract));
+          }),
+        ).pipe(Effect.provide(BunContext.layer)),
+      );
+
+      const feature = await Effect.runPromise(
+        Effect.flatMap(FeatureContract, (fc) => fc.load(p)).pipe(
+          Effect.provide(testLayer),
+        ),
+      );
+
+      const task = feature.stories[0]!.tasks[0]!;
+      expect(task.description).toBe("Add description field as Schema.optional to all three schemas.");
+    });
+
+    test("task without description field decodes successfully with description absent", async () => {
+      const p = brand<"AbsolutePath">(`${tmpDir}/task-without-description.json`);
+      const contract = {
+        feature: "test",
+        goal: "test goal",
+        constraints: [],
+        stories: [
+          {
+            id: "S1",
+            title: "Story 1",
+            acceptance: [],
+            tasks: [
+              {
+                id: "T1",
+                title: "Task 1",
+                files: [],
+                acceptance: [],
+                depends_on: [],
+                status: "pending",
+                attempts: 0,
+                maxAttempts: 3,
+              },
+            ],
+          },
+        ],
+      };
+
+      await Effect.runPromise(
+        Effect.flatMap(FileSystem.FileSystem, (fs) =>
+          Effect.gen(function* () {
+            yield* ensureTmpDir(fs);
+            yield* fs.writeFileString(p, JSON.stringify(contract));
+          }),
+        ).pipe(Effect.provide(BunContext.layer)),
+      );
+
+      const feature = await Effect.runPromise(
+        Effect.flatMap(FeatureContract, (fc) => fc.load(p)).pipe(
+          Effect.provide(testLayer),
+        ),
+      );
+
+      const task = feature.stories[0]!.tasks[0]!;
+      expect(task.description).toBeUndefined();
+    });
+
+    test("story with description field decodes and preserves the string", async () => {
+      const p = brand<"AbsolutePath">(`${tmpDir}/story-with-description.json`);
+      const contract = {
+        feature: "test",
+        goal: "test goal",
+        constraints: [],
+        stories: [
+          {
+            id: "S1",
+            title: "Story 1",
+            description: "Schema gains optional description on Task/Story/Feature.",
+            acceptance: [],
+            tasks: [],
+          },
+        ],
+      };
+
+      await Effect.runPromise(
+        Effect.flatMap(FileSystem.FileSystem, (fs) =>
+          Effect.gen(function* () {
+            yield* ensureTmpDir(fs);
+            yield* fs.writeFileString(p, JSON.stringify(contract));
+          }),
+        ).pipe(Effect.provide(BunContext.layer)),
+      );
+
+      const feature = await Effect.runPromise(
+        Effect.flatMap(FeatureContract, (fc) => fc.load(p)).pipe(
+          Effect.provide(testLayer),
+        ),
+      );
+
+      expect(feature.stories[0]!.description).toBe(
+        "Schema gains optional description on Task/Story/Feature.",
+      );
+    });
+
+    test("feature with description field decodes and preserves the string", async () => {
+      const p = brand<"AbsolutePath">(`${tmpDir}/feature-with-description.json`);
+      const contract = {
+        feature: "test",
+        goal: "test goal",
+        description: "Replace per-criterion ceremony with senior-dev judgment.",
+        constraints: [],
+        stories: [],
+      };
+
+      await Effect.runPromise(
+        Effect.flatMap(FileSystem.FileSystem, (fs) =>
+          Effect.gen(function* () {
+            yield* ensureTmpDir(fs);
+            yield* fs.writeFileString(p, JSON.stringify(contract));
+          }),
+        ).pipe(Effect.provide(BunContext.layer)),
+      );
+
+      const feature = await Effect.runPromise(
+        Effect.flatMap(FeatureContract, (fc) => fc.load(p)).pipe(
+          Effect.provide(testLayer),
+        ),
+      );
+
+      expect(feature.description).toBe(
+        "Replace per-criterion ceremony with senior-dev judgment.",
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // AcceptanceCriterionSchema — strict dual-form (S1.T3)
   // -------------------------------------------------------------------------
 
