@@ -29,4 +29,8 @@ declare global {
     | { _tag: "Retry" }
     | { _tag: "Exhausted" }
     | { _tag: "RateLimited"; role: AgentRole; resetsAt: number };
+
+  type GitCommitError =
+    | { _tag: "GitAddFailed"; taskId: TaskId; exitCode: number; stderr: string }
+    | { _tag: "GitCommitFailed"; taskId: TaskId; exitCode: number; stderr: string };
 }

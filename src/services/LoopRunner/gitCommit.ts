@@ -1,6 +1,7 @@
 import { Effect, Fiber, Stream } from "effect";
 import { Command, CommandExecutor, FileSystem } from "@effect/platform";
 import * as nodePath from "node:path";
+import { teeStream } from "../streamTee";
 
 /**
  * Stages `task.files`, `contractPath`, and (if present on disk) the sibling
@@ -10,14 +11,14 @@ import * as nodePath from "node:path";
  * from the bootstrap entry point). All git operations run from there so that
  * project-root-relative paths in `task.files` resolve correctly.
  *
- * Errors are caught and logged — best-effort housekeeping that never blocks the loop.
+ * Returns a typed `GitCommitError` on git failure; the caller decides log-and-continue vs. abort.
  * Not a Context.Tag; plain Effect-returning function.
  */
 export const commitTask = (
   projectRoot: AbsolutePath,
   task: Task,
   contractPath: AbsolutePath,
-): Effect.Effect<void, never, CommandExecutor.CommandExecutor | FileSystem.FileSystem> =>
+): Effect.Effect<void, GitCommitError, CommandExecutor.CommandExecutor | FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const executor = yield* CommandExecutor.CommandExecutor;
     const fs = yield* FileSystem.FileSystem;
@@ -60,13 +61,14 @@ export const commitTask = (
           ).pipe(Effect.orDie);
 
           const stderrChunks: Uint8Array[] = [];
-          const stderrFiber = yield* Effect.fork(
-            Stream.runForEach(process.stderr, (chunk) =>
+          const stderrFiber = yield* teeStream(
+            process.stderr,
+            (cause) => cause,
+            (chunk) =>
               Effect.sync(() => {
                 stderrChunks.push(chunk);
               }),
-            ).pipe(Effect.orDie),
-          );
+          ).pipe(Effect.orDie);
 
           const code = yield* process.exitCode.pipe(Effect.orDie);
           yield* Fiber.join(stderrFiber);
@@ -80,10 +82,12 @@ export const commitTask = (
 
     const addResult = yield* runGit(["add", ...filesToAdd]);
     if (addResult.exitCode !== 0) {
-      console.error(
-        `[git-commit] git add failed: task=${task.id as string} exit=${addResult.exitCode} stderr=${addResult.stderr}`,
-      );
-      return;
+      return yield* Effect.fail({
+        _tag: "GitAddFailed" as const,
+        taskId: task.id,
+        exitCode: addResult.exitCode,
+        stderr: addResult.stderr,
+      });
     }
 
     const commitMsg = `feat(${task.id as string}): ${task.title}`;
@@ -99,13 +103,13 @@ export const commitTask = (
       (commitResult.stderr.includes("nothing to commit") ||
         commitResult.stderr === "")
     ) {
-      console.log(
-        `[git-commit] nothing to commit for task=${task.id as string} (index unchanged)`,
-      );
       return;
     }
 
-    console.error(
-      `[git-commit] git commit failed: task=${task.id as string} exit=${commitResult.exitCode} stderr=${commitResult.stderr}`,
-    );
+    return yield* Effect.fail({
+      _tag: "GitCommitFailed" as const,
+      taskId: task.id,
+      exitCode: commitResult.exitCode,
+      stderr: commitResult.stderr,
+    });
   });

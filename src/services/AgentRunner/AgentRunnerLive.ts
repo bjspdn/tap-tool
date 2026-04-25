@@ -4,6 +4,7 @@ import { CommandExecutor } from "@effect/platform";
 import { AgentRunner, spawnFailed, maxTurnsExceeded, filesystemError, rateLimited } from "./AgentRunner";
 import type { RunError } from "./AgentRunner";
 import { decodeAgentEventLine } from "./AgentEventCodec";
+import { teeStream } from "../streamTee";
 
 // ---------------------------------------------------------------------------
 // AgentRunnerLive
@@ -77,82 +78,69 @@ export const AgentRunnerLive: Layer.Layer<
               );
 
               // Drain stdout: split lines → tee to disk → decode as AgentEvent.
-              // Map the stream's PlatformError to RunError before runForEach
-              // so the fiber's error channel is uniformly RunError.
-              const stdoutFiber = yield* Effect.fork(
-                Stream.runForEach(
-                  process.stdout.pipe(
-                    Stream.decodeText("utf-8"),
-                    Stream.splitLines,
-                    Stream.filter((l) => l.trim().length > 0),
-                    Stream.mapError(
-                      (cause): RunError => spawnFailed(role, 1, String(cause)),
-                    ),
-                  ),
-                  (line) =>
-                    Effect.gen(function* () {
-                      yield* fs
-                        .writeFileString(logPath as string, line + "\n", {
-                          flag: "a",
-                        })
-                        .pipe(
-                          Effect.mapError(
-                            (cause): RunError =>
-                              filesystemError(logPath, cause),
-                          ),
-                        );
-                      // Decode for in-memory `events`. Parse failures are
-                      // collected (not silently dropped) so a missing result
-                      // event can surface the underlying schema mismatch.
-                      const decoded = yield* Effect.either(
-                        decodeAgentEventLine(line),
-                      );
-                      if (Either.isRight(decoded)) {
-                        const event = decoded.right;
-                        events.push(event);
-                        if (
-                          event.type === "rate_limit_event" &&
-                          event.rate_limit_info.status === "rejected"
-                        ) {
-                          rateLimitResetsAt = Option.some(event.rate_limit_info.resetsAt);
-                        }
-                      } else {
-                        parseFailures.push({
-                          line: line.length > 240 ? line.slice(0, 240) + "…" : line,
-                          error: String(decoded.left),
-                        });
-                      }
-                    }),
+              const stdoutFiber = yield* teeStream(
+                process.stdout.pipe(
+                  Stream.decodeText("utf-8"),
+                  Stream.splitLines,
+                  Stream.filter((l) => l.trim().length > 0),
                 ),
+                (cause): RunError => spawnFailed(role, 1, String(cause)),
+                (line) =>
+                  Effect.gen(function* () {
+                    yield* fs
+                      .writeFileString(logPath as string, line + "\n", {
+                        flag: "a",
+                      })
+                      .pipe(
+                        Effect.mapError(
+                          (cause): RunError =>
+                            filesystemError(logPath, cause),
+                        ),
+                      );
+                    // Decode for in-memory `events`. Parse failures are
+                    // collected (not silently dropped) so a missing result
+                    // event can surface the underlying schema mismatch.
+                    const decoded = yield* Effect.either(
+                      decodeAgentEventLine(line),
+                    );
+                    if (Either.isRight(decoded)) {
+                      const event = decoded.right;
+                      events.push(event);
+                      if (
+                        event.type === "rate_limit_event" &&
+                        event.rate_limit_info.status === "rejected"
+                      ) {
+                        rateLimitResetsAt = Option.some(event.rate_limit_info.resetsAt);
+                      }
+                    } else {
+                      parseFailures.push({
+                        line: line.length > 240 ? line.slice(0, 240) + "…" : line,
+                        error: String(decoded.left),
+                      });
+                    }
+                  }),
               );
 
               // Drain stderr: accumulate bytes and tee to disk.
-              // Map the stream's PlatformError to RunError before runForEach.
-              const stderrFiber = yield* Effect.fork(
-                Stream.runForEach(
-                  process.stderr.pipe(
-                    Stream.mapError(
-                      (cause): RunError =>
-                        filesystemError(stderrLogPath, cause),
-                    ),
-                  ),
-                  (chunk) =>
-                    Effect.gen(function* () {
-                      stderrChunks.push(chunk);
-                      yield* fs
-                        .writeFileString(
-                          stderrLogPath as string,
-                          Buffer.from(chunk).toString("utf-8"),
-                          { flag: "a" },
-                        )
-                        .pipe(
-                          Effect.mapError(
-                            (cause): RunError =>
-                              filesystemError(stderrLogPath, cause),
-                          ),
-                        );
-                    }),
-                ),
+              const stderrFiber = yield* teeStream(
+                process.stderr,
+                (cause): RunError => filesystemError(stderrLogPath, cause),
+                (chunk) =>
+                  Effect.gen(function* () {
+                    stderrChunks.push(chunk);
+                    yield* fs
+                      .writeFileString(
+                        stderrLogPath as string,
+                        Buffer.from(chunk).toString("utf-8"),
+                        { flag: "a" },
+                      )
+                      .pipe(
+                        Effect.mapError(
+                          (cause): RunError =>
+                            filesystemError(stderrLogPath, cause),
+                        ),
+                      );
+                  }),
               );
 
               yield* Fiber.join(stdoutFiber);

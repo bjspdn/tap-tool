@@ -86,7 +86,19 @@ export const LoopRunnerLive: Layer.Layer<LoopRunner, never, never> = Layer.succe
                 feature = fc.incrementAttempt(feature, task.id);
                 feature = fc.markStatus(feature, task.id, "done");
                 yield* fc.save(contractPath, feature);
-                yield* commitTask(brand<"AbsolutePath">(process.cwd()), task, contractPath);
+                yield* commitTask(
+                  brand<"AbsolutePath">(process.cwd()),
+                  task,
+                  contractPath,
+                ).pipe(
+                  Effect.catchAll((err) =>
+                    Effect.sync(() =>
+                      console.error(
+                        `[loop-runner] commit failed for task=${err.taskId} _tag=${err._tag} exit=${err.exitCode} stderr=${err.stderr}`,
+                      ),
+                    ),
+                  ),
+                );
                 return { halt: null as StoppedReason | null };
               }),
             ),
