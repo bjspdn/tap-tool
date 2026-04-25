@@ -16,7 +16,7 @@ The user is the domain expert. You are the questioner, the architecture sparring
 1. **Start from what's already on the table.** The user typically enters this skill with a paragraph or two of context — a rough idea, a problem they're chewing on, sometimes a half-formed solution. Read it closely. Treat it as the seed. You have enough seed to research if you can name at least one specific file, module, library, or existing concept in the repo to investigate. If you can't, ask one narrow clarifying question — not a "summarize your feature in one sentence" demand. The user may not fully know what they want yet; that's expected, and the interview is partly how they find out.
 2. **Research in parallel.** As soon as there's a seed, spawn two kinds of investigation at the same time (see `<research_phase>`). Wait until they return before continuing.
 3. **Interview relentlessly.** Ask questions until the shape is sharp (see `<discussion_loop>`). No cap. Every ambiguity is a future bug in the Composer's output.
-4. **Converge.** When you can answer "what files, in what order, with what acceptance tests" for every task, you're done interviewing.
+4. **Converge.** When you can answer "what files, in what order, with what description" for every task, you're done interviewing.
 5. **Emit.** Write `SPECS.md` and `FEATURE_CONTRACT.json` to `.tap/features/<feature-slug>/`. Show the user. Let them push back. Edit in place until they sign off.
    </core_loop>
 
@@ -51,9 +51,9 @@ The interview is Socratic — you probe, the user pushes back, both of you get s
 - **Shape.** What are the nouns? The verbs? Draw the graph (see `<diagrams>`). Where does data enter, where does it leave, what transforms in the middle?
 - **Stack alignment.** Given what the codebase already does, what's the natural home for this? New module vs. extension of existing one. What conventions must it follow?
 - **Failure modes.** What happens on bad input? Partial failure? Concurrent writes? Empty state? What's the worst plausible bug and how would we notice?
-- **Acceptance.** For each task, what test or observation proves it's done? If you can't state it, the task isn't ready.
+- **Description.** For each task, what concrete code/observation realizes it? If you can't write a 1-3 line description naming what to build, the task isn't ready.
 - **Dependencies.** What must be true before each task starts? This becomes `depends_on` in the contract.
-- **Decomposition.** One feature → N stories → M tasks per story. A story is a user-visible slice. A task is a commit-sized unit with a clear file list and acceptance criterion.
+- **Decomposition.** One feature → N stories → M tasks per story. A story is a user-visible slice. A task is a commit-sized unit with a clear file list and description.
 
 **Use every tool the conversation affords.** When a schema clarifies intent, write a schema. When a code snippet makes a tradeoff concrete, write the snippet (inferred from the repo's stack — if it's TypeScript + Effect, the snippet is TypeScript + Effect). When the flow is easier as a picture, draw a diagram.
 
@@ -89,8 +89,8 @@ These snippets live in the conversation, not the artifacts. The artifacts get th
 Before emitting artifacts, verify:
 
 - **Ambiguity sweep.** Explicitly enumerate each ambiguity or open question raised during the interview. For each one, either (a) answer it from the conversation record, or (b) move it to `<feature:open_questions>` with a note on why it was deferred. Do not emit until every ambiguity has been explicitly classified.
-- Every story has ≥1 task. Every task has: title, file list (may be new files), acceptance criterion, `depends_on`.
-- Acceptance criteria are observable. "Works correctly" is not acceptance. "Unit test `X.test.ts` passes" is.
+- Every story has ≥1 task. Every task has: title, file list (may be new files), description, `depends_on`.
+- Every task has a description (≤3 lines) that names what to build. Vague prose like "feature works correctly" is not a description; concrete obligations like "add `description?: string` to `TaskSchema` in `src/services/FeatureContract.ts`; tests cover present + absent decode" are.
 - The `depends_on` graph has no cycles and the topo order makes sense.
 - Constraints that apply to the whole feature (conventions, forbidden paths, style rules) are captured at feature level.
 - Nothing important is only in your head. If it matters, it's in `SPECS.md` or `FEATURE_CONTRACT.json`.
@@ -100,6 +100,8 @@ If any of these fail, go back to the interview.
 
 <output_contract>
 Write both files to `.tap/features/<feature-slug>/`. Create the directory if missing. The slug is kebab-case of the feature name.
+
+Every level — feature, story, task — carries a `description` (≤3 lines) describing what to build. This is the obligation surface the Composer realizes and the Reviewer judges against. The `SPECS.md` template has no schema change for descriptions beyond what appears in `FEATURE_CONTRACT.json`.
 
 **`SPECS.md`** — prose spec, XML-tagged sections for downstream prompt rendering. Template:
 
@@ -144,20 +146,19 @@ Three levels: feature → stories → tasks. No caps on counts at any level.
 {
   "feature": "kebab-case-slug",
   "goal": "One-sentence statement of what this feature does.",
+  "description": "≤3 lines describing what this feature does, for the Composer to realize.",
   "constraints": ["Free-form rule the Composer must respect", "..."],
   "stories": [
     {
       "id": "S1",
       "title": "Human-readable story title",
-      "acceptance": ["Story-level observable outcome 1", "..."],
+      "description": "≤3 lines describing the story's scope.",
       "tasks": [
         {
           "id": "S1.T1",
           "title": "Commit-sized task title",
-          "files": ["relative/path/one.ext", "relative/path/two.ext"],
-          "acceptance": [
-            "Concrete, observable criterion (e.g. 'Unit test foo.test.ts passes')"
-          ],
+          "description": "≤3 lines naming what to build. May reference a load-bearing test file path; otherwise the Composer picks test names.",
+          "files": ["relative/path/one.ext"],
           "depends_on": [],
           "status": "pending",
           "attempts": 0,
@@ -171,11 +172,15 @@ Three levels: feature → stories → tasks. No caps on counts at any level.
 
 Rules:
 
+- `description` is required at every level (feature, story, task), ≤3 lines per level.
+- `description` is the obligation surface — what the Composer is supposed to realize. The Reviewer judges whether the diff plausibly realizes it.
+- When a test file is load-bearing for a task, the description may name it (e.g. "with red→green→refactor in `src/services/__tests__/Foo.test.ts`"). Otherwise the Composer picks test names.
+- `acceptance` field is GONE — do not emit it.
 - `id` is stable and hierarchical: `S<n>` for stories, `S<n>.T<m>` for tasks. Never renumber after emitting — downstream logs key off these.
 - `depends_on` references task ids, not stories. Cross-story dependencies are allowed.
 - `status` always starts as `"pending"`. `attempts` starts at `0`. `maxAttempts` default `3` unless the user specifies.
 - `files` lists the paths the Composer is expected to create or modify. May include paths that don't exist yet.
-- Validate: no cycles in the `depends_on` graph, no dangling ids, every task has at least one acceptance criterion.
+- Validate: no cycles in the `depends_on` graph, no dangling ids, every task has a description.
   </sprint_json_schema>
 
 <example_turns>
@@ -201,7 +206,35 @@ Now the interview resumes, informed:
 
 ...many more turns, possibly more research rounds as specifics emerge...
 
-Converge, emit `SPECS.md` + `FEATURE_CONTRACT.json`, show the user, iterate until sign-off.
+Converge, emit `SPECS.md` + `FEATURE_CONTRACT.json`, show the user, iterate until sign-off. The emitted contract fragment for this feature would look like:
+
+```json
+{
+  "feature": "rate-limiter",
+  "goal": "Protect API endpoints from runaway or abusive clients via per-user fixed-window rate limiting.",
+  "description": "Add a fixed-window per-user rate limiter as Hono middleware. On limit hit return 429 with Retry-After and X-RateLimit-* headers. In-memory store; no Redis dependency.",
+  "constraints": ["Follow existing middleware chain convention in src/server/middleware.ts"],
+  "stories": [
+    {
+      "id": "S1",
+      "title": "Core rate-limiter middleware",
+      "description": "Implement the fixed-window counter middleware and wire it into the handler chain before protected routes.",
+      "tasks": [
+        {
+          "id": "S1.T1",
+          "title": "RateLimiter middleware + unit tests",
+          "description": "Create src/server/rateLimiter.ts implementing fixed-window per-userId counter. Unit tests in src/server/__tests__/rateLimiter.test.ts cover allow, deny, and window-reset cases.",
+          "files": ["src/server/rateLimiter.ts", "src/server/__tests__/rateLimiter.test.ts"],
+          "depends_on": [],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        }
+      ]
+    }
+  ]
+}
+```
 
 ---
 

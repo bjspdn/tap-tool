@@ -1,7 +1,7 @@
 type EvalResult = {
   readonly verdict: "PASS" | "FAIL";
-  readonly rationale: string;
-  readonly issues: ReadonlyArray<EvalIssue>;
+  readonly summary: string;
+  readonly comments: ReadonlyArray<EvalComment>;
 };
 
 // Aligned with the RunTaskError tagged union — these two variants are the

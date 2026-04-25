@@ -6,7 +6,6 @@ declare global {
     readonly feature: Feature;
     readonly specsPath: AbsolutePath;
     readonly contractPath: AbsolutePath;
-    readonly featureRoot: AbsolutePath;
     readonly attempt: number;
     readonly priorEval: Option.Option<AbsolutePath>;
     readonly gitStatus: string;
@@ -17,7 +16,6 @@ declare global {
     readonly feature: Feature;
     readonly specsPath: AbsolutePath;
     readonly contractPath: AbsolutePath;
-    readonly featureRoot: AbsolutePath;
     readonly attempt: number;
     readonly evalPath: AbsolutePath;
   };

@@ -117,8 +117,8 @@ const makePassResult = (taskId: string): TaskResult => ({
   taskId: brand<"TaskId">(taskId),
   attempt: 1,
   verdict: "PASS",
-  rationale: "fake pass",
-  issues: [],
+  summary: "fake pass",
+  comments: [],
   composerLogPath: brand<"AbsolutePath">("/fake/composer.jsonl"),
   reviewerLogPath: brand<"AbsolutePath">("/fake/reviewer.jsonl"),
   evalResultPath: brand<"AbsolutePath">("/fake/EVAL_RESULT.md"),
@@ -128,7 +128,7 @@ const makePassResult = (taskId: string): TaskResult => ({
 const makeFailResult = (taskId: string): TaskResult => ({
   ...makePassResult(taskId),
   verdict: "FAIL",
-  rationale: "fake fail",
+  summary: "fake fail",
 });
 
 // ---------------------------------------------------------------------------

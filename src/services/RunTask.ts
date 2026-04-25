@@ -132,7 +132,6 @@ export const runTask = (
       feature,
       specsPath: paths.specsPath,
       contractPath: paths.contractPath,
-      featureRoot: paths.featureRoot,
       attempt: paths.attempt,
       priorEval: paths.priorEvalPath,
       gitStatus: paths.gitStatus,
@@ -154,7 +153,6 @@ export const runTask = (
       feature,
       specsPath: paths.specsPath,
       contractPath: paths.contractPath,
-      featureRoot: paths.featureRoot,
       attempt: paths.attempt,
       evalPath: evalResultPath,
     });
@@ -171,7 +169,7 @@ export const runTask = (
     });
 
     // Step 9 — Read and parse eval result.
-    const { verdict, rationale, issues } = yield* readAndParseEval(evalResultPath);
+    const { verdict, summary, comments } = yield* readAndParseEval(evalResultPath);
 
     // Step 10 — Duration.
     const durationMs = (yield* Clock.currentTimeMillis) - startMs;
@@ -181,8 +179,8 @@ export const runTask = (
       taskId: task.id,
       attempt: paths.attempt,
       verdict,
-      rationale,
-      issues,
+      summary,
+      comments,
       composerLogPath,
       reviewerLogPath,
       evalResultPath,

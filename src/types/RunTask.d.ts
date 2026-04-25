@@ -1,16 +1,16 @@
-type EvalIssue = {
-  readonly acceptanceFailed: string;
-  readonly file: AbsolutePath;
-  readonly problem: string;
-  readonly suggestedFix: string;
+type EvalComment = {
+  readonly file: string;
+  readonly line?: number | null;
+  readonly severity: "blocker" | "suggestion" | "nitpick";
+  readonly comment: string;
 };
 
 type TaskResult = {
   readonly taskId: TaskId;
   readonly attempt: number;
   readonly verdict: "PASS" | "FAIL";
-  readonly rationale: string;
-  readonly issues: ReadonlyArray<EvalIssue>;
+  readonly summary: string;
+  readonly comments: ReadonlyArray<EvalComment>;
   readonly composerLogPath: AbsolutePath;
   readonly reviewerLogPath: AbsolutePath;
   readonly evalResultPath: AbsolutePath;

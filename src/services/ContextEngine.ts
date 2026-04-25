@@ -58,29 +58,44 @@ export const ContextEngineLive = Layer.effect(
 
 // --- Context mappers (camelCase RenderInput → snake_case Handlebars context) ---
 
-const toComposerContext = (input: ComposerRenderInput) => ({
-  feature_goal: input.feature.goal,
-  feature_constraints: input.feature.constraints,
-  task_id: input.task.id as string,
-  task_title: input.task.title,
-  task_files: input.task.files as readonly string[],
-  task_acceptance: input.task.acceptance,
-  specs_path: input.specsPath as string,
-  contract_path: input.contractPath as string,
-  // Empty string is Handlebars-falsy, so {{#if prior_eval_path}} is skipped on attempt 1.
-  prior_eval_path: Option.getOrElse(input.priorEval, () => "" as string),
-  git_status: input.gitStatus,
-});
+const findParentStory = (feature: Feature, task: Task): Story | undefined =>
+  feature.stories.find((s) => s.tasks.some((t) => t.id === task.id));
 
-const toReviewerContext = (input: ReviewerRenderInput) => ({
-  task_id: input.task.id as string,
-  task_title: input.task.title,
-  task_files: input.task.files as readonly string[],
-  task_acceptance: input.task.acceptance,
-  specs_path: input.specsPath as string,
-  contract_path: input.contractPath as string,
-  eval_path: input.evalPath as string,
-});
+const toComposerContext = (input: ComposerRenderInput) => {
+  const story = findParentStory(input.feature, input.task);
+  return {
+    feature_description: input.feature.description ?? input.feature.goal,
+    feature_constraints: input.feature.constraints,
+    task_id: input.task.id as string,
+    task_title: input.task.title,
+    task_description: input.task.description ?? input.task.title,
+    task_files: input.task.files as readonly string[],
+    story_title: story?.title ?? "",
+    story_description: story?.description ?? story?.title ?? "",
+    specs_path: input.specsPath as string,
+    contract_path: input.contractPath as string,
+    // Empty string is Handlebars-falsy, so {{#if prior_eval_path}} is skipped on attempt 1.
+    prior_eval_path: Option.getOrElse(input.priorEval, () => "" as string),
+    git_status: input.gitStatus,
+  };
+};
+
+const toReviewerContext = (input: ReviewerRenderInput) => {
+  const story = findParentStory(input.feature, input.task);
+  return {
+    feature_description: input.feature.description ?? input.feature.goal,
+    feature_constraints: input.feature.constraints,
+    task_id: input.task.id as string,
+    task_title: input.task.title,
+    task_description: input.task.description ?? input.task.title,
+    task_files: input.task.files as readonly string[],
+    story_title: story?.title ?? "",
+    story_description: story?.description ?? story?.title ?? "",
+    specs_path: input.specsPath as string,
+    contract_path: input.contractPath as string,
+    eval_path: input.evalPath as string,
+  };
+};
 
 // --- tryRender: translate Handlebars throws into TemplateRenderError ---
 

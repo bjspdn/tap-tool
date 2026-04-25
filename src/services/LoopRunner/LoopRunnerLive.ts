@@ -175,7 +175,7 @@ export const LoopRunnerLive: Layer.Layer<LoopRunner, never, never> = Layer.succe
             } else if (outcome.right.verdict === "FAIL") {
               yield* Effect.sync(() =>
                 console.error(
-                  `[loop-runner] iter ${iterations} task ${task.id} attempt ${attempt}/${task.maxAttempts} verdict=FAIL\n  rationale: ${outcome.right.rationale}\n  issues: ${outcome.right.issues.length}`,
+                  `[loop-runner] iter ${iterations} task ${task.id} attempt ${attempt}/${task.maxAttempts} verdict=FAIL\n  summary: ${outcome.right.summary}\n  comments: ${outcome.right.comments.length}`,
                 ),
               );
             }

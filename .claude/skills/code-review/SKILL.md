@@ -1,11 +1,11 @@
 ---
 name: code-review
-description: Reviewer methodology for the tap-tool Ralph loop. Activates when this sub-agent session was launched as `claude -p --agent Reviewer` inside the tap-tool RunTask pipeline. Governs per-criterion classification, zero-trust verification, scope checking, verdict rules, and eval result emission. Do not use for general PR review, ad-hoc diff commentary, or any session not running under the Reviewer sub-agent identity.
+description: Reviewer methodology for the tap-tool Ralph loop. Activates when this sub-agent session was launched as `claude -p --agent Reviewer` inside the tap-tool RunTask pipeline. Governs PR-style judgment, zero-trust verification, scope checking, verdict rules, and eval result emission. Do not use for general PR review, ad-hoc diff commentary, or any session not running under the Reviewer sub-agent identity.
 ---
 
 <section name="trigger">
 
-This skill is active when the session is the Reviewer sub-agent in the tap-tool composer-reviewer loop — i.e. the process was spawned with `claude -p --agent Reviewer`. The stdin prompt is a rendered `REVIEWER_CONTRACT.md` supplying `task_id`, `task_acceptance`, `task_files`, `eval_path`, and related fields.
+This skill is active when the session is the Reviewer sub-agent in the tap-tool composer-reviewer loop — i.e. the process was spawned with `claude -p --agent Reviewer`. The stdin prompt is a rendered `REVIEWER_CONTRACT.md` supplying `task_id`, `task_description`, `task_files`, `eval_path`, and related fields.
 
 Out of scope: general pull-request review, code commentary outside the tap loop, any session where no `eval_path` was supplied in stdin.
 
@@ -15,22 +15,34 @@ Out of scope: general pull-request review, code commentary outside the tap loop,
 
 Follow these steps in order. Do not skip or reorder them.
 
-<subsection name="step-1-per-criterion-classification">
+<subsection name="step-1-judgment">
 
-Read `task_acceptance` from the rendered prompt. For each criterion in that array, assign exactly one label:
-
-- `Satisfied` — concrete evidence confirms the criterion is fully met.
-- `Not satisfied` — concrete evidence shows the criterion is unmet or absent.
-- `Partial` — criterion is partly met; name what is present and what is missing.
-
-Every classification must name its evidence. Acceptable evidence forms:
+Apply the four behavior prompts to the diff. For each one, gather concrete evidence before moving to the next. Acceptable evidence forms:
 
 - A file path and line number: `src/types/RunTask.d.ts:12`
-- A grep hit: `grep -n "EvalIssue" src/types/RunTask.d.ts`
+- A grep hit: `grep -n "EvalComment" src/types/RunTask.d.ts`
 - A command result: `bunx tsc --noEmit` output (run it yourself — see step 2)
-- Absence: "file does not exist at the expected path"
+- Confirmed absence: "file does not exist at the expected path"
 
-Hand-waving ("looks correct", "seems fine") is not evidence. If you cannot produce evidence, the criterion is `Not satisfied`.
+Hand-waving ("looks correct", "seems fine") is not evidence. If you cannot produce evidence, treat the question as failing.
+
+**Prompt 1 — Does this code do what the task description says?**
+Read `task_description` from the rendered prompt. Read the diff. For each named behavior in the description, confirm its presence in the changed code with a file path or grep hit. If the description names a test file, verify it exists and exercises the described behavior.
+
+**Prompt 2 — Are there obvious bugs, missing error handling, or logic errors?**
+Inspect control flow in the changed files. Check: are fallible operations wrapped in Effect? Are error channels handled or threaded? Are edge cases (empty array, None, missing file) covered?
+
+**Prompt 3 — Does it follow codebase conventions (CLAUDE.md, TDD, test placement, branding, Effect)?**
+Check:
+- Tests live in a sibling `__tests__/` folder named `<SourceName>.test.ts`.
+- `Option<T>` used for absent values, not `T | undefined | null`.
+- Branded types for identifiers where type mixing would be a bug.
+- Effect for fallible operations; `throw` only for defect-level invariant violations.
+- No `any`, no `as unknown as`.
+- PascalCase for single-class/component files; camelCase for multi-utility modules.
+
+**Prompt 4 — Does it pass the quality gates? (`bun test` + `bunx tsc --noEmit`)**
+See step 2 (zero-trust verification). Both must exit zero for PASS.
 
 </subsection>
 
@@ -58,7 +70,7 @@ git diff --name-only HEAD
 git status --short
 ```
 
-Compare the output against `task_files` from the rendered prompt. Any file in the diff that is not in `task_files` is a scope violation. Scope violations produce a FAIL issue regardless of whether the file change appears benign.
+Compare the output against `task_files` from the rendered prompt. Any file in the diff that is not in `task_files` is a scope violation. Scope violations produce a FAIL comment regardless of whether the file change appears benign.
 
 </subsection>
 
@@ -66,13 +78,15 @@ Compare the output against `task_files` from the rendered prompt. Any file in th
 
 Emit `PASS` only when all of the following hold simultaneously:
 
-1. Every acceptance criterion is classified `Satisfied` (no `Not satisfied`, no `Partial`).
-2. `bun test` exits zero.
-3. `bunx tsc --noEmit` exits zero.
-4. No anti-pattern violations detected (consult the `anti-patterns` skill).
-5. No scope violations (step 3 produced no out-of-bounds files).
+1. The task description is plausibly realized — the diff does what the description says (Prompt 1).
+2. No obvious bugs, missing error handling, or logic errors (Prompt 2).
+3. Codebase conventions followed (Prompt 3).
+4. `bun test` exits zero.
+5. `bunx tsc --noEmit` exits zero.
+6. No anti-pattern violations detected (consult the `anti-patterns` skill).
+7. No scope violations (step 3 produced no out-of-bounds files).
 
-Any single miss — one `Not satisfied`, one `Partial`, one test failure, one type error, one out-of-bounds file — produces `FAIL`. `Partial` does not round up to `Satisfied`.
+Any single miss — description not realized, an obvious bug, a convention violation, a test failure, a type error, an out-of-bounds file, an anti-pattern — produces `FAIL`.
 
 </subsection>
 
@@ -82,12 +96,16 @@ Write exactly one file: the path supplied as `eval_path` in the rendered prompt.
 
 ```
 <eval:verdict>PASS|FAIL</eval:verdict>
-<eval:rationale>
-  ...
-</eval:rationale>
-<eval:issues>
-  ...
-</eval:issues>
+<eval:summary>
+One paragraph, ≤300 words, overall read of the diff.
+</eval:summary>
+<eval:comments>
+# YAML list. Empty when verdict is PASS. ≥1 entry when FAIL.
+- file: "<path>"
+  line: <number>          # optional — omit when not line-anchored
+  severity: "blocker" | "suggestion" | "nitpick"
+  comment: "<concrete observation + suggested action>"
+</eval:comments>
 ```
 
 The full emission format — field names, YAML list shape, word-count constraint, and the exact `eval_path` value — is specified in the rendered `REVIEWER_CONTRACT.md` prompt. Do not guess the path; read it from the prompt.
@@ -98,23 +116,23 @@ Do not edit source files. Do not commit. The eval file is the only write this su
 
 </section>
 
-<section name="issue-writing">
+<section name="comment-writing">
 
-Each issue in `<eval:issues>` must contain:
+Each comment in `<eval:comments>` must contain:
 
-- `acceptance_failed` — the exact or near-verbatim text of the criterion that failed, so the next Composer attempt can locate it in the contract.
 - `file` — the specific file where the problem was observed, or the file that was expected but absent.
-- `problem` — the concrete symptom: a line reference, a type error message, a missing export, a scope violation.
-- `suggested_fix` — the minimum-viable change a Composer can act on in the next attempt. Be specific: name the declaration to add, the import to remove, the test assertion to write.
+- `line` — the line number where the problem is anchored (optional; omit when the comment is not line-specific).
+- `severity` — one of `"blocker"`, `"suggestion"`, `"nitpick"`. This is a human label; no machine logic acts on it. Use `blocker` for issues that would prevent PASS, `suggestion` for improvements worth making, `nitpick` for minor style points.
+- `comment` — the concrete observation plus the minimum-viable suggested action. Be specific: name the declaration to add, the import to remove, the test assertion to write.
 
-When verdict is PASS, `<eval:issues>` contains an empty YAML list. When verdict is FAIL, at least one issue entry is required.
+When verdict is PASS, `<eval:comments>` contains an empty YAML list. When verdict is FAIL, at least one comment entry is required.
 
 </section>
 
 <section name="failure-modes">
 
-- `bun test` or `bunx tsc --noEmit` not available in PATH: report as a FAIL issue with `suggested_fix: "Ensure bun is installed and on PATH before Reviewer is spawned"`.
-- `eval_path` not supplied in the rendered prompt: write the file to `.tap/features/<slug>/eval/EVAL_RESULT.md` as a fallback and note the missing placeholder as a FAIL issue.
+- `bun test` or `bunx tsc --noEmit` not available in PATH: report as a FAIL comment with `comment: "Ensure bun is installed and on PATH before Reviewer is spawned"`.
+- `eval_path` not supplied in the rendered prompt: write the file to `.tap/features/<slug>/eval/EVAL_RESULT.md` as a fallback and note the missing placeholder as a FAIL comment.
 - `git diff --name-only HEAD` returns no output on a fresh repo with no commits: use `git status --short` alone and note the limitation.
 
 </section>

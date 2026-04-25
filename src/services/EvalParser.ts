@@ -14,8 +14,10 @@ export class EvalParser extends Context.Tag("EvalParser")<
 >() {}
 
 const VERDICT_RE = /<eval:verdict>\s*(PASS|FAIL)\s*<\/eval:verdict>/;
-const RATIONALE_RE = /<eval:rationale>([\s\S]*?)<\/eval:rationale>/;
-const ISSUES_RE = /<eval:issues>([\s\S]*?)<\/eval:issues>/;
+const SUMMARY_RE = /<eval:summary>([\s\S]*?)<\/eval:summary>/;
+const COMMENTS_RE = /<eval:comments>([\s\S]*?)<\/eval:comments>/;
+
+const VALID_SEVERITIES = new Set(["blocker", "suggestion", "nitpick"]);
 
 const fail = (reason: string, rawContent: string): EvalParseFailed => ({
   _tag: "EvalParseFailed",
@@ -39,41 +41,41 @@ export const parseEvalContent = (
     }
     const verdict = verdictRaw as "PASS" | "FAIL";
 
-    const rationaleMatch = RATIONALE_RE.exec(rawContent);
-    const rationaleRaw = rationaleMatch?.[1];
-    if (rationaleRaw === undefined) {
-      return yield* Effect.fail(fail("missing <eval:rationale> tag", rawContent));
+    const summaryMatch = SUMMARY_RE.exec(rawContent);
+    const summaryRaw = summaryMatch?.[1];
+    if (summaryRaw === undefined) {
+      return yield* Effect.fail(fail("missing <eval:summary> tag", rawContent));
     }
-    const rationale = rationaleRaw.trim();
+    const summary = summaryRaw.trim();
 
-    const issuesMatch = ISSUES_RE.exec(rawContent);
-    const issuesRaw = issuesMatch?.[1];
-    if (issuesRaw === undefined) {
-      return yield* Effect.fail(fail("missing <eval:issues> tag", rawContent));
+    const commentsMatch = COMMENTS_RE.exec(rawContent);
+    const commentsRaw = commentsMatch?.[1];
+    if (commentsRaw === undefined) {
+      return yield* Effect.fail(fail("missing <eval:comments> tag", rawContent));
     }
-    const issuesBody = issuesRaw.trim();
+    const commentsBody = commentsRaw.trim();
 
-    const issues = yield* parseIssuesBlock(issuesBody, rawContent);
+    const comments = yield* parseCommentsBlock(commentsBody, rawContent);
 
-    if (verdict === "FAIL" && issues.length === 0) {
+    if (verdict === "FAIL" && comments.length === 0) {
       return yield* Effect.fail(
-        fail("FAIL verdict requires at least one issue", rawContent),
+        fail("FAIL verdict requires at least one comment", rawContent),
       );
     }
 
-    return { verdict, rationale, issues } satisfies EvalResult;
+    return { verdict, summary, comments } satisfies EvalResult;
   });
 
-const parseIssuesBlock = (
-  issuesBody: string,
+const parseCommentsBlock = (
+  commentsBody: string,
   rawContent: string,
-): Effect.Effect<ReadonlyArray<EvalIssue>, EvalParseFailed> =>
+): Effect.Effect<ReadonlyArray<EvalComment>, EvalParseFailed> =>
   Effect.gen(function* () {
-    if (issuesBody === "") return [];
+    if (commentsBody === "") return [];
 
     let parsed: unknown;
     try {
-      parsed = YAML.parse(issuesBody);
+      parsed = YAML.parse(commentsBody);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return yield* Effect.fail(fail(`YAML parse failed: ${msg}`, rawContent));
@@ -83,44 +85,62 @@ const parseIssuesBlock = (
 
     if (!Array.isArray(parsed)) {
       return yield* Effect.fail(
-        fail("<eval:issues> must be a YAML list", rawContent),
+        fail("<eval:comments> must be a YAML list", rawContent),
       );
     }
 
-    const issues: EvalIssue[] = [];
+    const comments: EvalComment[] = [];
     for (let i = 0; i < parsed.length; i++) {
       const item: unknown = parsed[i];
       if (typeof item !== "object" || item === null) {
         return yield* Effect.fail(
-          fail(`issue #${i} is not a YAML mapping`, rawContent),
+          fail(`comment #${i} is not a YAML mapping`, rawContent),
         );
       }
       const rec = item as Record<string, unknown>;
-      const acceptanceFailed = rec["acceptance_failed"];
       const file = rec["file"];
-      const problem = rec["problem"];
-      const suggestedFix = rec["suggested_fix"];
-      if (
-        typeof acceptanceFailed !== "string" ||
-        typeof file !== "string" ||
-        typeof problem !== "string" ||
-        typeof suggestedFix !== "string"
-      ) {
+      const severity = rec["severity"];
+      const comment = rec["comment"];
+
+      if (typeof file !== "string") {
+        return yield* Effect.fail(
+          fail(`comment #${i} missing required string field "file"`, rawContent),
+        );
+      }
+      if (typeof severity !== "string" || !VALID_SEVERITIES.has(severity)) {
         return yield* Effect.fail(
           fail(
-            `issue #${i} missing required string fields (acceptance_failed, file, problem, suggested_fix)`,
+            `comment #${i} "severity" must be "blocker", "suggestion", or "nitpick"`,
             rawContent,
           ),
         );
       }
-      issues.push({
-        acceptanceFailed,
-        file: file as AbsolutePath,
-        problem,
-        suggestedFix,
+      if (typeof comment !== "string") {
+        return yield* Effect.fail(
+          fail(`comment #${i} missing required string field "comment"`, rawContent),
+        );
+      }
+
+      const lineRaw = rec["line"];
+      const line: number | null | undefined =
+        lineRaw === undefined
+          ? undefined
+          : lineRaw === null
+            ? null
+            : typeof lineRaw === "number"
+              ? lineRaw
+              : (() => {
+                  return undefined; // unexpected type — treat as absent
+                })();
+
+      comments.push({
+        file,
+        line,
+        severity: severity as "blocker" | "suggestion" | "nitpick",
+        comment,
       });
     }
-    return issues;
+    return comments;
   });
 
 export const EvalParserLive = Layer.succeed(

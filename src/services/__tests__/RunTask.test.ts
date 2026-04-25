@@ -84,34 +84,31 @@ const makeAssistantEvent = (sessionId: string): AgentEvent => ({
 
 const CANNED_PASS =
   "<eval:verdict>PASS</eval:verdict>\n" +
-  "<eval:rationale>canned pass</eval:rationale>\n" +
-  "<eval:issues>\n" +
-  "</eval:issues>\n";
+  "<eval:summary>canned pass</eval:summary>\n" +
+  "<eval:comments>\n" +
+  "</eval:comments>\n";
 
 const CANNED_FAIL =
   "<eval:verdict>FAIL</eval:verdict>\n" +
-  "<eval:rationale>canned fail</eval:rationale>\n" +
-  "<eval:issues>\n" +
-  '- acceptance_failed: "criterion A"\n' +
-  '  file: "src/a.ts"\n' +
-  '  problem: "p1"\n' +
-  '  suggested_fix: "f1"\n' +
-  '- acceptance_failed: "criterion B"\n' +
-  '  file: "src/b.ts"\n' +
-  '  problem: "p2"\n' +
-  '  suggested_fix: "f2"\n' +
-  "</eval:issues>\n";
+  "<eval:summary>canned fail</eval:summary>\n" +
+  "<eval:comments>\n" +
+  '- file: "src/a.ts"\n' +
+  '  severity: "blocker"\n' +
+  '  comment: "p1"\n' +
+  '- file: "src/b.ts"\n' +
+  '  severity: "suggestion"\n' +
+  '  comment: "p2"\n' +
+  "</eval:comments>\n";
 
 // Borrowed from EvalParser.test.ts MALFORMED_YAML fixture shape
 const MALFORMED_YAML =
   "<eval:verdict>FAIL</eval:verdict>\n" +
-  "<eval:rationale>malformed body below</eval:rationale>\n" +
-  "<eval:issues>\n" +
-  '- acceptance_failed: "unterminated string\n' +
-  '  file: "src/foo.ts"\n' +
-  '  problem: "x"\n' +
-  '  suggested_fix: "y"\n' +
-  "</eval:issues>\n";
+  "<eval:summary>malformed body below</eval:summary>\n" +
+  "<eval:comments>\n" +
+  '- file: "unterminated string\n' +
+  '  severity: "blocker"\n' +
+  '  comment: "x"\n' +
+  "</eval:comments>\n";
 
 // ---------------------------------------------------------------------------
 // Layer composer
@@ -174,7 +171,7 @@ describe("RunTask", () => {
     );
 
     expect(result.verdict).toBe("PASS");
-    expect(result.issues).toHaveLength(0);
+    expect(result.comments).toHaveLength(0);
     expect(result.taskId).toBe(task.id);
     expect(result.attempt).toBe(paths.attempt);
     expect(result.durationMs).toBeGreaterThanOrEqual(0);
@@ -199,7 +196,7 @@ describe("RunTask", () => {
   // Test 2 — FAIL path (two issues mapped)
   // -------------------------------------------------------------------------
 
-  test("FAIL path — TaskResult with verdict=FAIL and two EvalIssues correctly mapped", async () => {
+  test("FAIL path — TaskResult with verdict=FAIL and two EvalComments correctly mapped", async () => {
     const featureRoot = brand<"AbsolutePath">(`${TMP_ROOT}/test-fail`);
     const task = makeTask();
     const feature = makeFeature();
@@ -228,21 +225,19 @@ describe("RunTask", () => {
     );
 
     expect(result.verdict).toBe("FAIL");
-    expect(result.issues).toHaveLength(2);
+    expect(result.comments).toHaveLength(2);
 
-    const issue0 = result.issues[0];
-    if (!issue0) throw new Error("expected issue 0");
-    expect(issue0.acceptanceFailed).toBe("criterion A");
-    expect(issue0.file).toBe(brand<"AbsolutePath">("src/a.ts"));
-    expect(issue0.problem).toBe("p1");
-    expect(issue0.suggestedFix).toBe("f1");
+    const comment0 = result.comments[0];
+    if (!comment0) throw new Error("expected comment 0");
+    expect(comment0.file).toBe("src/a.ts");
+    expect(comment0.severity).toBe("blocker");
+    expect(comment0.comment).toBe("p1");
 
-    const issue1 = result.issues[1];
-    if (!issue1) throw new Error("expected issue 1");
-    expect(issue1.acceptanceFailed).toBe("criterion B");
-    expect(issue1.file).toBe(brand<"AbsolutePath">("src/b.ts"));
-    expect(issue1.problem).toBe("p2");
-    expect(issue1.suggestedFix).toBe("f2");
+    const comment1 = result.comments[1];
+    if (!comment1) throw new Error("expected comment 1");
+    expect(comment1.file).toBe("src/b.ts");
+    expect(comment1.severity).toBe("suggestion");
+    expect(comment1.comment).toBe("p2");
   });
 
   // -------------------------------------------------------------------------

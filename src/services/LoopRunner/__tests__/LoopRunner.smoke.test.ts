@@ -14,15 +14,15 @@ import { brand } from "../../brand";
 
 // ---------------------------------------------------------------------------
 // Canned PASS eval content — written by AgentRunnerEcho on Reviewer invocation.
-// EvalParser requires: <eval:verdict>PASS</eval:verdict>, <eval:rationale>,
-// <eval:issues> (empty is valid for PASS).
+// EvalParser requires: <eval:verdict>PASS</eval:verdict>, <eval:summary>,
+// <eval:comments> (empty is valid for PASS).
 // ---------------------------------------------------------------------------
 
 const PASS_EVAL_CONTENT =
   "<eval:verdict>PASS</eval:verdict>\n" +
-  "<eval:rationale>All criteria satisfied in smoke test.</eval:rationale>\n" +
-  "<eval:issues>\n" +
-  "</eval:issues>\n";
+  "<eval:summary>All criteria satisfied in smoke test.</eval:summary>\n" +
+  "<eval:comments>\n" +
+  "</eval:comments>\n";
 
 // ---------------------------------------------------------------------------
 // AgentRunnerEcho script — Composer ok + Reviewer ok with PASS eval content.
