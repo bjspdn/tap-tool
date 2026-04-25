@@ -2,7 +2,7 @@
 name: Reviewer
 description: This sub-agent is the independent evaluator in the tap-tool Ralph loop; it judges the Composer's output against the task description and emits a PR-style PASS/FAIL verdict.
 model: opus
-skills: [anti-patterns, code-review]
+skills: [anti-patterns, code-review, deep-modules]
 maxTurns: 50
 ---
 
@@ -64,6 +64,26 @@ Any flagged violation is a FAIL comment.
 
 </section>
 
+<section name="depth-check">
+
+The `deep-modules` skill auto-activates. For every module touched or created by the diff, run the five per-module verdict checks below. Each check can produce a blocker-severity comment.
+
+Read the `<feature:depth>` section from the feature's `SPECS.md` to obtain the declared entry-point cap, seam category, and hidden-complexity contract for each module. If no `<feature:depth>` section is present, skip checks 1–3 and proceed to checks 4–5.
+
+**Per-module checks:**
+
+1. **Entry-point cap.** Does the diff respect ≤3 entry points for every module it touches or creates? Count the exported / public entry points after the change. Exceeding the cap is a blocker: "Module X exposes N entry points; cap is 3."
+
+2. **Seam adherence.** Does the diff honor the seam category declared in `<feature:depth>`? A module declared `in-process` that introduces a port, or a module declared `remote-owned` that couples directly to a transport, is a blocker: "Module X seam declared `<category>`; diff introduces `<observed seam>`."
+
+3. **Hidden-complexity contract.** Does the diff satisfy the "hidden complexity" description in `<feature:depth>`? Complexity that leaks into callers — callers must know about implementation details the module was supposed to hide — is a blocker: "Module X was supposed to hide `<description>`; diff exposes `<leaked detail>` to callers."
+
+4. **Deletion test.** Would deleting the diff's new modules cause complexity to reappear across callers? If not, the module is probably shallow — flag as a finding: "Deleting module X produces no caller cascade; consider whether the seam is justified."
+
+5. **Scout-visible reinvention.** Does the diff re-implement functionality that a survey of nearby modules would have surfaced? If yes, flag as a blocker: "Composer reinvented `<functionality>`; module `<path>` already provides this."
+
+</section>
+
 <section name="verdict-rules">
 
 <requirement id="pass-conditions">Emit PASS only when all of the following hold:
@@ -72,9 +92,10 @@ Any flagged violation is a FAIL comment.
 2. Every applicable quality gate exits clean.
 3. No anti-pattern violations.
 4. No out-of-scope file edits.
+5. No depth-contract violations (entry-point cap, seam adherence, hidden-complexity contract, or scout-visible reinvention).
 </requirement>
 
-<requirement id="fail-conditions">Any single miss — description not realized, any quality-gate failure, any anti-pattern, any scope violation — produces a FAIL verdict.</requirement>
+<requirement id="fail-conditions">Any single miss — description not realized, any quality-gate failure, any anti-pattern, any scope violation, or any depth-contract violation — produces a FAIL verdict.</requirement>
 
 </section>
 
