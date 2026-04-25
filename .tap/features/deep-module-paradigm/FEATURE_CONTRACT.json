@@ -10,7 +10,7 @@
     "Surface decode/parse failures in the depth extractor (do not swallow); bubble up or fold into downstream failure messages.",
     "Scout output is ephemeral — passed via stdin into Composer's prompt, no on-disk artifact.",
     "Summarizer fires only on terminal AllDone and Exhausted; skip RateLimited and NoReadyTasks.",
-    "deep-modules skill lives at ~/.claude/skills/deep-modules/, not in the project repo.",
+    "deep-modules skill lives at .claude/skills/deep-modules/ in the repo (project-scope), so it ships with the agents that depend on it.",
     "Reuse the runRole helper (commit e9d49c4) for Summarizer dispatch — no parallel orchestration code.",
     "Summarizer failure must not gate loop termination."
   ],
@@ -42,9 +42,9 @@
         {
           "id": "S2.T1",
           "title": "Author ~/.claude/skills/deep-modules/SKILL.md",
-          "description": "Create ~/.claude/skills/deep-modules/SKILL.md with: (1) vocabulary core — module, interface, depth-as-leverage definition (explicitly rejecting Ousterhout's line ratio), seam, leverage, locality; (2) operational tests — deletion test, ≤3 entry-point hard cap, four-category seam taxonomy (in-process / local-substitutable / remote-owned / external) from DEEPENING.md, 'one adapter = hypothetical seam, two = real seam' rule; (3) three short role overlays: probe (tap-into interview prompts), write (Composer + Scout — survey nearby modules' interfaces and seams), judge (Reviewer + Summarizer — grade diff against <feature:depth>).",
+          "description": "Create .claude/skills/deep-modules/SKILL.md with: (1) vocabulary core — module, interface, depth-as-leverage definition (explicitly rejecting Ousterhout's line ratio), seam, leverage, locality; (2) operational tests — deletion test, ≤3 entry-point hard cap, four-category seam taxonomy (in-process / local-substitutable / remote-owned / external) from DEEPENING.md, 'one adapter = hypothetical seam, two = real seam' rule; (3) three short role overlays: probe (tap-into interview prompts), write (Composer + Scout — survey nearby modules' interfaces and seams), judge (Reviewer + Summarizer — grade diff against <feature:depth>).",
           "files": [
-            "~/.claude/skills/deep-modules/SKILL.md"
+            ".claude/skills/deep-modules/SKILL.md"
           ],
           "depends_on": [],
           "status": "done",

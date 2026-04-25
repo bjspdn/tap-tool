@@ -23,7 +23,7 @@ The `runRole` inline helper introduced in commit `e9d49c4` is the dispatch primi
 - Surface decode/parse failures in the new depth-section extractor (do not swallow). Bubble up or fold into downstream failure messages, per `feedback_surface_parse_errors`.
 - Composer's pattern survey runs as an `Explore` Scout subagent. Output is **ephemeral** — passed via stdin into Composer's prompt, no on-disk artifact.
 - Summarizer fires only on terminal `AllDone` and `Exhausted`. Skip on `RateLimited` and `NoReadyTasks`.
-- `deep-modules` skill lives at `~/.claude/skills/deep-modules/`, not in the project. Single SKILL.md with vocabulary core + three short role overlays (probe / write / judge).
+- `deep-modules` skill lives at `.claude/skills/deep-modules/` in the repo (project-scope), so it ships with the agents that depend on it. Single SKILL.md with vocabulary core + three short role overlays (probe / write / judge).
 - Follow existing role-dispatch convention: Summarizer dispatches through the `runRole` helper (commit `e9d49c4`), not a parallel pathway.
 - Summarizer failure must not gate loop termination — log and exit cleanly with the existing terminal status.
   </feature:constraints>
@@ -120,7 +120,7 @@ Three render paths share `extractDepthSection` and the `{{depth_section}}` place
 - **Scout subagent times out or returns garbage.** Composer proceeds without the report. Logged. Not a halt — Reviewer is the enforcement loop and will FAIL iterations that ignore obvious nearby patterns. Subsequent retry attempts re-spawn Scout (ephemeral, no caching).
 - **Summarizer fails on terminal dispatch.** `SUMMARY.md` is not written. LoopRunner logs the failure and exits cleanly with the existing terminal status. `terminalSummaryDispatch` absorbs the failure inside the helper so the terminal status stays authoritative.
 - **`runRole` dispatch envelope drift between Composer / Reviewer / Summarizer.** Mitigated by reusing the inline `runRole` helper from commit `e9d49c4` — single dispatch path, same envelope. New role plugs in by name + prompt + skills frontmatter, not by parallel orchestration code.
-- **`deep-modules` skill not installed at `~/.claude/skills/deep-modules/` on the user's machine.** Composer/Reviewer/Summarizer's `skills:` frontmatter references a missing skill — agent harness handles missing-skill behavior. Not blocking but degrades the depth-discipline guarantees the feature is supposed to provide. Documented in the skill creation task.
+- **`deep-modules` skill not installed at `.claude/skills/deep-modules/` (project-scope) in the repo.** Composer/Reviewer/Summarizer's `skills:` frontmatter references a missing skill — agent harness handles missing-skill behavior. Not blocking but degrades the depth-discipline guarantees the feature is supposed to provide. Documented in the skill creation task.
   </feature:failure_modes>
 
 <feature:open_questions>
