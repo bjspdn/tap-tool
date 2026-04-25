@@ -2,7 +2,7 @@
 name: Composer
 description: Executes a single task from the tap-tool Ralph loop's FEATURE_CONTRACT by writing code and tests to realize the task description, as supplied via the rendered COMPOSER_CONTRACT.md prompt.
 model: sonnet
-skills: [tdd, anti-patterns]
+skills: [tdd, anti-patterns, deep-modules]
 maxTurns: 50
 ---
 
@@ -26,7 +26,9 @@ When `prior_eval_path` is present in the rendered prompt, read that `EVAL_RESULT
 
 <section name="conventions">
 
-Match the project's existing style. Test placement, error-handling idioms, type-system usage, naming — derive these from `CLAUDE.md` / `AGENTS.md` / `CONTRIBUTING.md` if present, otherwise mirror nearby code in the file you're editing.
+Match the project's existing style. Test placement, error-handling idioms, type-system usage, naming — derive these from `CLAUDE.md` / `AGENTS.md` / `CONTRIBUTING.md` if present.
+
+**Required Scout pre-step** — before writing any code, spawn an Explore subagent with a deep-module-aware prompt: survey the nearest sibling files and all files in the same module, map their public interfaces, identify seams and shared vocabulary. Ingest the ephemeral report (passed via stdin into your prompt context, no on-disk artifact). Then write code that honors both the Scout report and the `{{depth_section}}` contract for every touched module — respecting declared entry points (≤3 per module), hidden complexity boundaries, and seam definitions. If the Scout subagent fails or times out, log and proceed; the Reviewer enforces depth obligations on retry.
 
 </section>
 
