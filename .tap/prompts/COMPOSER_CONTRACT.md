@@ -53,6 +53,22 @@ Read these if you need deeper context on types, constraints, or architectural de
 
 ---
 
+{{#if depth_section}}
+## Depth contract
+
+Every module you touch carries a depth contract. Honor it: respect declared entry points
+(≤ 3 per module), hidden complexity boundaries, and seam definitions.
+
+**Required Scout pre-step** — before writing any code, spawn an Explore subagent surveying
+the nearest sibling files and all files in the same module. Ingest the ephemeral report via
+stdin into your prompt context (no on-disk artifact). Then write code that honors both the
+Scout report and every module entry in the contract below.
+
+{{{depth_section}}}
+
+---
+
+{{/if}}
 {{#if prior_eval_path}}
 ## Retry context
 
@@ -71,6 +87,9 @@ suggestion before writing any new code.
 
 ## Non-negotiables
 
+- **Scout before you write**: if a Depth contract section appears above, spawn an Explore
+  subagent first; survey the touched module's sibling files; ingest the report before
+  writing any code. Scout output is ephemeral — do not write it to disk.
 - **Scope**: touch only the files listed under "Files you may touch". No other files.
 - **No VCS**: do not run `git add`, `git commit`, `git push`, or any equivalent.
 - **Quality gates must pass**: identify and pass every quality gate the project enforces. Inspect the repo to discover them — CI configuration, the project's manifest or build config, any task-runner files at the root, and any contributor documentation. Run every gate that applies: tests, typecheck, lint, build, format-check. Each must exit clean. If a gate is ambiguous or absent, state which you ran, which you skipped, and why.
