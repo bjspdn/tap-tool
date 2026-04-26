@@ -311,6 +311,162 @@ describe("extractDepthSection", () => {
 });
 
 // ---------------------------------------------------------------------------
+// buildManifest — scout_manifest integration via renderComposer
+// ---------------------------------------------------------------------------
+
+describe("buildManifest — scout_manifest in rendered output", () => {
+  /**
+   * Minimal template that exposes both manifest arrays for assertion.
+   * Uses triple-stash {{{ }}} so Handlebars doesn't HTML-escape path separators.
+   */
+  const composerTpl =
+    "targets={{#each scout_manifest.targets}}{{{this.path}}},{{/each}} context={{#each scout_manifest.context}}{{{this.path}}},{{/each}}";
+  const reviewerTpl = "r={{{eval_path}}}";
+
+  test("file path resolves to parent dir siblings", async () => {
+    const depthSection = "- **Path:** `src/services/MyService.ts`";
+    const specsContent = `<feature:depth>\n${depthSection}\n</feature:depth>`;
+
+    const readFile = (_p: string) => Effect.succeed(specsContent);
+    const readDir = (dirPath: string): Effect.Effect<ReadonlyArray<string>, never> =>
+      dirPath === "src/services"
+        ? Effect.succeed([
+            "src/services/MyService.ts",
+            "src/services/OtherService.ts",
+          ] as ReadonlyArray<string>)
+        : Effect.succeed([]);
+
+    const engine = makeContextEngine(
+      composerTpl,
+      reviewerTpl,
+      "",
+      readFile,
+      () => Effect.succeed(""),
+      readDir,
+    );
+    const result = await Effect.runPromise(engine.renderComposer(makeComposerInput()));
+
+    expect(result).toContain("src/services/MyService.ts");
+    expect(result).toContain("src/services/OtherService.ts");
+  });
+
+  test("directory path resolves to children", async () => {
+    const depthSection = "- **Path:** `src/types`";
+    const specsContent = `<feature:depth>\n${depthSection}\n</feature:depth>`;
+
+    const readFile = (_p: string) => Effect.succeed(specsContent);
+    const readDir = (dirPath: string): Effect.Effect<ReadonlyArray<string>, never> =>
+      dirPath === "src/types"
+        ? Effect.succeed([
+            "src/types/A.d.ts",
+            "src/types/B.d.ts",
+          ] as ReadonlyArray<string>)
+        : Effect.succeed([]);
+
+    const engine = makeContextEngine(
+      composerTpl,
+      reviewerTpl,
+      "",
+      readFile,
+      () => Effect.succeed(""),
+      readDir,
+    );
+    const result = await Effect.runPromise(engine.renderComposer(makeComposerInput()));
+
+    expect(result).toContain("src/types/A.d.ts");
+    expect(result).toContain("src/types/B.d.ts");
+  });
+
+  test("missing path skips gracefully — no error, context empty", async () => {
+    const depthSection = "- **Path:** `src/nonexistent/Ghost.ts`";
+    const specsContent = `<feature:depth>\n${depthSection}\n</feature:depth>`;
+
+    const readFile = (_p: string) => Effect.succeed(specsContent);
+    const readDir = (_dirPath: string): Effect.Effect<ReadonlyArray<string>, never> =>
+      Effect.succeed([]);
+
+    const engine = makeContextEngine(
+      composerTpl,
+      reviewerTpl,
+      "",
+      readFile,
+      () => Effect.succeed(""),
+      readDir,
+    );
+    // Must not throw even though the directory yields nothing
+    const result = await Effect.runPromise(engine.renderComposer(makeComposerInput()));
+
+    expect(result).toContain("context=");
+    // No ghost path in the output
+    const contextPart = result.split("context=")[1] ?? "";
+    expect(contextPart).not.toContain("src/nonexistent");
+  });
+
+  test("empty depth section yields targets only", async () => {
+    // SPECS with no <spec:depth> block → Option.none → targets-only manifest
+    const readFile = (_p: string) =>
+      Effect.succeed("# SPECS\nNo depth section here.");
+    const readDir = (_dirPath: string): Effect.Effect<ReadonlyArray<string>, never> =>
+      Effect.succeed([]);
+
+    const taskFiles: readonly AbsolutePath[] = [brand<"AbsolutePath">("src/foo.ts")];
+    const input = makeComposerInput({ task: makeTask({ files: taskFiles }) });
+
+    const engine = makeContextEngine(
+      composerTpl,
+      reviewerTpl,
+      "",
+      readFile,
+      () => Effect.succeed(""),
+      readDir,
+    );
+    const result = await Effect.runPromise(engine.renderComposer(input));
+
+    // targets contains the task file
+    expect(result).toContain("targets=src/foo.ts,");
+    // context is empty
+    const contextPart = result.split("context=")[1] ?? "";
+    expect(contextPart.trim()).toBe("");
+  });
+
+  test("overlapping modules deduplicate — each context path appears once", async () => {
+    // Two file paths in the same directory → readDir returns same list for both
+    const depthSection =
+      "- **Path:** `src/services/Alpha.ts`\n- **Path:** `src/services/Beta.ts`";
+    const specsContent = `<feature:depth>\n${depthSection}\n</feature:depth>`;
+
+    const siblings: ReadonlyArray<string> = [
+      "src/services/Alpha.ts",
+      "src/services/Beta.ts",
+      "src/services/Gamma.ts",
+    ];
+
+    const readFile = (_p: string) => Effect.succeed(specsContent);
+    const readDir = (_dirPath: string): Effect.Effect<ReadonlyArray<string>, never> =>
+      Effect.succeed(siblings);
+
+    const engine = makeContextEngine(
+      composerTpl,
+      reviewerTpl,
+      "",
+      readFile,
+      () => Effect.succeed(""),
+      readDir,
+    );
+    const result = await Effect.runPromise(engine.renderComposer(makeComposerInput()));
+
+    const contextPart = result.split("context=")[1] ?? "";
+    const countOccurrences = (haystack: string, needle: string) =>
+      haystack.split(needle).length - 1;
+
+    // Each sibling appears exactly once despite two modules pointing to the same dir
+    expect(countOccurrences(contextPart, "src/services/Alpha.ts")).toBe(1);
+    expect(countOccurrences(contextPart, "src/services/Beta.ts")).toBe(1);
+    expect(countOccurrences(contextPart, "src/services/Gamma.ts")).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // renderSummarizer
 // ---------------------------------------------------------------------------
 

@@ -75,6 +75,92 @@ export const extractDepthSection = (
 };
 
 // ---------------------------------------------------------------------------
+// Path helpers
+// ---------------------------------------------------------------------------
+
+/** Return the directory portion of a file path (everything before the last `/`). */
+const dirname = (filePath: string): string => {
+  const lastSlash = filePath.lastIndexOf("/");
+  return lastSlash === -1 ? "." : filePath.slice(0, lastSlash);
+};
+
+/**
+ * Heuristic: a path is a file path when its last segment contains a dot.
+ * Directory paths like `src/services` have no dot in the final segment.
+ */
+const isFilePath = (p: string): boolean => {
+  const basename = p.slice(p.lastIndexOf("/") + 1);
+  return basename.includes(".");
+};
+
+// ---------------------------------------------------------------------------
+// parseModulePaths — extract module paths from a depth section string
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract module file/directory paths from the inner content of a `<spec:depth>` block.
+ * Matches lines of the form: `- **Path:** \`<path>\``
+ */
+const parseModulePaths = (depthSection: string): ReadonlyArray<string> => {
+  const result: string[] = [];
+  const re = /- \*\*Path:\*\* `([^`]+)`/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(depthSection)) !== null) {
+    if (match[1]) result.push(match[1]);
+  }
+  return result;
+};
+
+// ---------------------------------------------------------------------------
+// buildManifest — internal manifest construction (hidden complexity)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a ScoutManifest from task files and depth-section module paths.
+ *
+ * - `targets`: task.files mapped to ManifestEntry with reason "task file".
+ * - `context`: sibling/child files of depth-section modules, deduplicated against
+ *   task.files and against each other.
+ * - File paths resolve to their parent directory; directory paths resolve to themselves.
+ * - Missing or unreadable paths are skipped gracefully (`readDir` returns `[]` on error).
+ * - When `depthSectionOpt` is `None`, only targets are returned (no context entries).
+ */
+const buildManifest = (
+  depthSectionOpt: Option.Option<string>,
+  taskFiles: ReadonlyArray<string>,
+  readDir: (dirPath: string) => Effect.Effect<ReadonlyArray<string>, never>,
+): Effect.Effect<ScoutManifest, never> =>
+  Effect.gen(function* () {
+    const taskFileSet = new Set(taskFiles);
+    const targets: ManifestEntry[] = Array.from(taskFiles).map((p) => ({
+      path: p,
+      reason: "task file",
+    }));
+
+    if (Option.isNone(depthSectionOpt)) {
+      return { targets, context: [] };
+    }
+
+    const modulePaths = parseModulePaths(depthSectionOpt.value);
+    const contextPathSet = new Set<string>();
+    const contextEntries: ManifestEntry[] = [];
+
+    for (const modulePath of modulePaths) {
+      const dirPath = isFilePath(modulePath) ? dirname(modulePath) : modulePath;
+      const children = yield* readDir(dirPath);
+
+      for (const child of children) {
+        if (!taskFileSet.has(child) && !contextPathSet.has(child)) {
+          contextPathSet.add(child);
+          contextEntries.push({ path: child, reason: "sibling of depth module", module: modulePath });
+        }
+      }
+    }
+
+    return { targets, context: contextEntries };
+  });
+
+// ---------------------------------------------------------------------------
 // SummarizerRenderInput
 // ---------------------------------------------------------------------------
 
@@ -144,17 +230,20 @@ export const makeContextEngine = (
   readFile: (path: string) => Effect.Effect<string, never> = (_path) =>
     Effect.succeed(""),
   getGitDiff: () => Effect.Effect<string, never> = () => Effect.succeed(""),
+  readDir: (dirPath: string) => Effect.Effect<ReadonlyArray<string>, never> = (_dirPath) =>
+    Effect.succeed([]),
 ): ContextEngine["Type"] => {
   const composerTpl = Handlebars.compile(composerSrc, { strict: true });
   const reviewerTpl = Handlebars.compile(reviewerSrc, { strict: true });
   const summarizerTpl = Handlebars.compile(summarizerSrc, { strict: true });
 
-  const resolveDepthSection = (
+  /** Resolve the depth section Option for a given specs path; maps DepthParseError to TemplateRenderError. */
+  const resolveDepthOpt = (
     specsPath: string,
-  ): Effect.Effect<string, TemplateRenderError> =>
+  ): Effect.Effect<Option.Option<string>, TemplateRenderError> =>
     Effect.gen(function* () {
       const content = yield* readFile(specsPath);
-      const depthOpt = yield* extractDepthSection(content).pipe(
+      return yield* extractDepthSection(content).pipe(
         Effect.mapError(
           (e): TemplateRenderError => ({
             _tag: "TemplateRenderFailed",
@@ -163,27 +252,37 @@ export const makeContextEngine = (
           }),
         ),
       );
-      return Option.getOrElse(depthOpt, () => "");
     });
+
+  const resolveDepthSection = (
+    specsPath: string,
+  ): Effect.Effect<string, TemplateRenderError> =>
+    resolveDepthOpt(specsPath).pipe(
+      Effect.map((opt) => Option.getOrElse(opt, () => "")),
+    );
 
   return ContextEngine.of({
     renderComposer: (input) =>
       Effect.gen(function* () {
-        const depthSection = yield* resolveDepthSection(input.specsPath as string);
+        const depthOpt = yield* resolveDepthOpt(input.specsPath as string);
+        const depthSection = Option.getOrElse(depthOpt, () => "");
+        const manifest = yield* buildManifest(depthOpt, input.task.files as readonly string[], readDir);
         return yield* tryRender(
           "COMPOSER_CONTRACT.md",
           composerTpl,
-          toComposerContext(input, depthSection),
+          toComposerContext(input, depthSection, manifest),
         );
       }),
 
     renderReviewer: (input) =>
       Effect.gen(function* () {
-        const depthSection = yield* resolveDepthSection(input.specsPath as string);
+        const depthOpt = yield* resolveDepthOpt(input.specsPath as string);
+        const depthSection = Option.getOrElse(depthOpt, () => "");
+        const manifest = yield* buildManifest(depthOpt, input.task.files as readonly string[], readDir);
         return yield* tryRender(
           "REVIEWER_CONTRACT.md",
           reviewerTpl,
-          toReviewerContext(input, depthSection),
+          toReviewerContext(input, depthSection, manifest),
         );
       }),
 
@@ -230,7 +329,14 @@ export const ContextEngineLive = Layer.effect(
         return stdout;
       }).pipe(Effect.catchAll(() => Effect.succeed("")));
 
-    return makeContextEngine(composerSrc, reviewerSrc, summarizerSrc, readFile, getGitDiff);
+    // List immediate children of a directory for manifest resolution; skips gracefully on error.
+    const readDir = (dirPath: string): Effect.Effect<ReadonlyArray<string>, never> =>
+      fs.readDirectory(dirPath).pipe(
+        Effect.map((entries) => entries.map((name) => `${dirPath}/${name}`)),
+        Effect.catchAll(() => Effect.succeed([] as ReadonlyArray<string>)),
+      );
+
+    return makeContextEngine(composerSrc, reviewerSrc, summarizerSrc, readFile, getGitDiff, readDir);
   }),
 );
 
@@ -239,7 +345,11 @@ export const ContextEngineLive = Layer.effect(
 const findParentStory = (feature: Feature, task: Task): Story | undefined =>
   feature.stories.find((s) => s.tasks.some((t) => t.id === task.id));
 
-const toComposerContext = (input: ComposerRenderInput, depthSection: string) => {
+const toComposerContext = (
+  input: ComposerRenderInput,
+  depthSection: string,
+  scoutManifest: ScoutManifest,
+) => {
   const story = findParentStory(input.feature, input.task);
   return {
     feature_description: input.feature.description ?? input.feature.goal,
@@ -256,10 +366,15 @@ const toComposerContext = (input: ComposerRenderInput, depthSection: string) => 
     prior_eval_path: Option.getOrElse(input.priorEval, () => "" as string),
     git_status: input.gitStatus,
     depth_section: depthSection,
+    scout_manifest: scoutManifest,
   };
 };
 
-const toReviewerContext = (input: ReviewerRenderInput, depthSection: string) => {
+const toReviewerContext = (
+  input: ReviewerRenderInput,
+  depthSection: string,
+  scoutManifest: ScoutManifest,
+) => {
   const story = findParentStory(input.feature, input.task);
   return {
     feature_description: input.feature.description ?? input.feature.goal,
@@ -274,6 +389,7 @@ const toReviewerContext = (input: ReviewerRenderInput, depthSection: string) => 
     contract_path: input.contractPath as string,
     eval_path: input.evalPath as string,
     depth_section: depthSection,
+    scout_manifest: scoutManifest,
   };
 };
 
