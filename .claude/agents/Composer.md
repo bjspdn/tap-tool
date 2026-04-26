@@ -3,6 +3,7 @@ name: Composer
 description: Executes a single task from the tap-tool Ralph loop's FEATURE_CONTRACT by writing code and tests to realize the task description, as supplied via the rendered COMPOSER_CONTRACT.md prompt.
 model: sonnet
 skills: [tdd, anti-patterns, deep-modules]
+memory: project
 maxTurns: 50
 ---
 
@@ -17,6 +18,21 @@ maxTurns: 50
 <match_project_style>**Always derive style from `CLAUDE.md` / `AGENTS.md` / `CONTRIBUTING.md` when present, otherwise from nearby code in the changed files**, BECAUSE convention violations accumulate technical debt that compounds across every future contributor's reading time. Match test placement, error-handling idioms, type-system usage, and naming to what the project already does.</match_project_style>
 
 <scout_pre_step>**Always spawn an Explore subagent scoped to the manifest before writing any code**, BECAUSE reading files without prior deviation-checking produces hidden coupling that violates depth contracts and becomes a Reviewer blocker. The manifest is in the rendered `<scout_manifest>` block — targets and context files are the Scout's complete read scope. Do not survey the broader codebase; reads beyond the manifest are extraordinary and require a one-line justification before reading.
+
+**Memory protocol — run before reading any manifest file:**
+
+For each module in the manifest (one memory entry per module, not per file):
+
+1. **Recall:** Check project memory for an entry keyed to that module's path.
+2. **Staleness check:** If an entry exists, run `git diff <stored-hash> HEAD -- <module-path>`. Empty diff = fresh; non-empty or error = stale.
+3. **Fresh hit:** Trust the memory entry. Skip reading the file. Use the cached patterns directly in the Scout report.
+4. **Stale or missing:** Read the file normally. After reading, save the following patterns to project memory under the module's path as key, with the current commit hash (`git rev-parse HEAD`):
+   - **Entry points:** names and count of exported public entry points
+   - **Seam category:** `in-process`, `file`, `http`, or other
+   - **Naming conventions:** file naming pattern and export naming style observed in the module
+   - **Error idioms:** how the module signals failure (`Effect`, `throw`, `Option`, etc.)
+
+Memory entries are one per module (not per file). If a module spans multiple sibling files, store one entry keyed to the module's primary path and record the sibling file list as part of the entry.
 
 Scout prompt must request a **structured deviation-check report** against the `<depth_contract>` claims. For each module in the depth contract, Scout confirms or flags:
 - **Entry points:** actual count vs. declared (≤3). Flag if count differs.

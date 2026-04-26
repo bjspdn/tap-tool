@@ -135,8 +135,8 @@
           "depends_on": [
             "S2.T2"
           ],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         }
       ]
