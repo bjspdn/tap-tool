@@ -3,82 +3,84 @@ name: code-review
 description: Reviewer methodology for the tap-tool Ralph loop. Activates when this sub-agent session was launched as `claude -p --agent Reviewer` inside the tap-tool RunTask pipeline. Governs PR-style judgment, zero-trust verification, scope checking, verdict rules, and eval result emission. Do not use for general PR review, ad-hoc diff commentary, or any session not running under the Reviewer sub-agent identity.
 ---
 
-<section name="trigger">
+<trigger>
 
 This skill is active when the session is the Reviewer sub-agent in the tap-tool composer-reviewer loop — i.e. the process was spawned with `claude -p --agent Reviewer`. The stdin prompt is a rendered `REVIEWER_CONTRACT.md` supplying `task_id`, `task_description`, `task_files`, `eval_path`, and related fields.
 
 Out of scope: general pull-request review, code commentary outside the tap loop, any session where no `eval_path` was supplied in stdin.
 
-</section>
+</trigger>
 
-<section name="methodology">
+<judgment>
 
-Follow these steps in order. Do not skip or reorder them.
-
-<subsection name="step-1-judgment">
-
-Apply the four behavior prompts to the diff. For each one, gather concrete evidence before moving to the next. Acceptable evidence forms:
+For each behavior prompt below, gather concrete evidence before moving to the next. Acceptable evidence forms:
 
 - A file path and line number: `src/types/RunTask.d.ts:12`
 - A grep hit: `grep -n "EvalComment" src/types/RunTask.d.ts`
-- A command result: the project's typecheck gate output (run it yourself — see step 2)
+- A command result: the project's typecheck gate output (run it yourself — see the `<zero_trust_verification>` block)
 - Confirmed absence: "file does not exist at the expected path"
 
 Hand-waving ("looks correct", "seems fine") is not evidence. If you cannot produce evidence, treat the question as failing.
 
-**Prompt 1 — Does this code do what the task description says?**
-Read `task_description` from the rendered prompt. Read the diff. For each named behavior in the description, confirm its presence in the changed code with a file path or grep hit. If the description names a test file, verify it exists and exercises the described behavior.
+<prompt_description>**Always confirm the described behavior is actually present in the changed code**, BECAUSE the task description is the specification — any gap between what is described and what was written is a correctness defect, not a style concern. Read the description. Read the diff. For each named behavior in the description, confirm its presence with a file path or grep hit. If the description names a test file, verify it exists and exercises the described behavior.</prompt_description>
 
-**Prompt 2 — Are there obvious bugs, missing error handling, or logic errors?**
-Inspect control flow in the changed files. Check: are fallible operations wrapped in Effect? Are error channels handled or threaded? Are edge cases (empty array, None, missing file) covered?
+<prompt_bugs>**Always inspect control flow, error channels, and edge cases in the changed files**, BECAUSE bugs in these areas are the most common source of production failures and are invisible to purely syntactic review. Check: are fallible operations wrapped in Effect? Are error channels handled or threaded? Are edge cases (empty array, None, missing file) covered?</prompt_bugs>
 
-**Prompt 3 — Does it follow project conventions?**
-Match the project's existing style. Test placement, error-handling idioms, type-system usage, naming — derive these from `CLAUDE.md` / `AGENTS.md` / `CONTRIBUTING.md` if present, otherwise mirror nearby code in the changed files.
+<prompt_conventions>**Always derive project conventions from `CLAUDE.md` / `AGENTS.md` / `CONTRIBUTING.md` when present, otherwise from nearby code in the changed files**, BECAUSE convention violations accumulate technical debt that compounds across every future contributor's reading time. Check test placement, error-handling idioms, type-system usage, and naming.</prompt_conventions>
 
-**Prompt 4 — Does it pass the quality gates?**
-See step 2 (zero-trust verification). Every applicable quality gate must exit zero for PASS.
+<prompt_quality_gates>**Always re-run every applicable quality gate independently rather than accepting any reported result**, BECAUSE passing gates in the Composer's report cannot be trusted; only a fresh execution by the Reviewer confirms that the code compiles, tests pass, and lint is clean. See the `<zero_trust_verification>` block.</prompt_quality_gates>
 
-</subsection>
+</judgment>
 
-<subsection name="step-2-zero-trust-verification">
+<zero_trust_verification>
 
-Do not trust any test or type-check results reported by the Composer. Re-run every quality gate the project enforces (tests, typecheck, lint, build, format-check). Capture stdout and stderr. If any gate exits non-zero, that is a FAIL. If the Composer's log claims green but your run is red, the Composer's claim is irrelevant — your result governs.
+<rerun_quality_gates>**Always re-run every quality gate the project enforces independently**, BECAUSE the Composer's reported output is untrusted — only first-hand gate execution can confirm that the code actually passes. Discover gates by inspecting CI configuration, the project's manifest or build config, root-level task runners, and contributor documentation. Run every gate that applies (tests, typecheck, lint, build, format-check). If any gate exits non-zero, the verdict is FAIL.
 
-If the task produced only static documentation, the relevant quality gates may not apply — note which were skipped and why.
+If the task produced only static documentation, the relevant quality gates may not apply — note which were skipped and why.</rerun_quality_gates>
 
-</subsection>
+<zero_trust>**Always read the changed files directly from the working tree rather than trusting the Composer's description of what it changed**, BECAUSE the Composer's description is self-reported and unverifiable; the diff is the only authoritative record of what was actually written. Do not accept the Composer's description as a substitute for reading the actual diff.</zero_trust>
 
-<subsection name="step-3-scope-check">
+</zero_trust_verification>
 
-Enumerate every file touched since the last clean commit:
+<scope_check>**Always enumerate every file touched since the last clean commit and compare against `task_files` before issuing a verdict**, BECAUSE the Composer's report of which files it touched is untrusted; the working tree is the only authoritative source for scope verification.
 
 ```
 git diff --name-only HEAD
 git status --short
 ```
 
-Compare the output against `task_files` from the rendered prompt. Any file in the diff that is not in `task_files` is a scope violation. Scope violations produce a FAIL comment regardless of whether the file change appears benign.
+Any file in the diff that is not in `task_files` is a scope violation. Scope violations produce a FAIL comment regardless of whether the file change appears benign. Report each out-of-scope file by name.
 
-</subsection>
+Note: if `git diff --name-only HEAD` returns no output on a fresh repo with no commits, use `git status --short` alone and note the limitation.</scope_check>
 
-<subsection name="step-4-verdict">
+<verdict_rules>
 
-Emit `PASS` only when all of the following hold simultaneously:
+<pass_conditions>**Always require all six conditions to hold simultaneously before emitting PASS**, BECAUSE a verdict that passes on five of six criteria still ships broken or out-of-contract code — every condition is a load-bearing gate, not a scoring rubric:
 
-1. The task description is plausibly realized — the diff does what the description says (Prompt 1).
-2. No obvious bugs, missing error handling, or logic errors (Prompt 2).
-3. Project conventions followed (Prompt 3).
+1. The task description is plausibly realized — the diff does what the description says.
+2. No obvious bugs, missing error handling, or logic errors.
+3. Project conventions followed.
 4. Every applicable quality gate exits clean.
-5. No anti-pattern violations detected (consult the `anti-patterns` skill).
-6. No scope violations (step 3 produced no out-of-bounds files).
+5. No anti-pattern violations (consult the `anti-patterns` skill).
+6. No out-of-scope file edits.
+</pass_conditions>
 
-Any single miss — description not realized, an obvious bug, a convention violation, a test failure, a type error, an out-of-bounds file, an anti-pattern — produces `FAIL`.
+<fail_conditions>**Always emit FAIL on any single miss**, BECAUSE partial compliance is indistinguishable from non-compliance once the code ships — description not realized, any quality-gate failure, any obvious bug, any convention violation, any anti-pattern, or any scope violation each independently produces a FAIL verdict.</fail_conditions>
 
-</subsection>
+</verdict_rules>
 
-<subsection name="step-5-emission">
+<comment_writing>**Always include `file`, `severity`, and `comment` fields on every entry in `<eval:comments>`**, BECAUSE the downstream consumer parses this YAML structure by field name; missing required fields silently drop information from the eval record.
 
-Write exactly one file: the path supplied as `eval_path` in the rendered prompt. Use the Write tool. The file must contain the three-block schema:
+- `file` — the specific file where the problem was observed, or the file that was expected but absent.
+- `line` — the line number where the problem is anchored (optional; omit when the comment is not line-specific).
+- `severity` — one of `"blocker"`, `"suggestion"`, `"nitpick"`. Use `blocker` for issues that would prevent PASS, `suggestion` for improvements worth making, `nitpick` for minor style points.
+- `comment` — the concrete observation plus the minimum-viable suggested action. Be specific: name the declaration to add, the import to remove, the test assertion to write.
+
+When verdict is PASS, `<eval:comments>` contains an empty YAML list. When verdict is FAIL, at least one comment entry is required.</comment_writing>
+
+<output>
+
+<write_eval_result>**Always write `EVAL_RESULT.md` at the exact path given by `eval_path` using the Write tool and the three-block format below**, BECAUSE the downstream `EvalParser` service expects a file at that precise path with exactly these tags in this order; any deviation silently breaks the loop's result ingestion. Do not guess the path; read it from the rendered prompt. If `eval_path` is not supplied, write to `.tap/features/<slug>/eval/EVAL_RESULT.md` as a fallback and note the missing placeholder as a FAIL comment.
 
 ```
 <eval:verdict>PASS|FAIL</eval:verdict>
@@ -93,32 +95,10 @@ One paragraph, ≤300 words, overall read of the diff.
   comment: "<concrete observation + suggested action>"
 </eval:comments>
 ```
+</write_eval_result>
 
-The full emission format — field names, YAML list shape, word-count constraint, and the exact `eval_path` value — is specified in the rendered `REVIEWER_CONTRACT.md` prompt. Do not guess the path; read it from the prompt.
+<exit_after_write>**Always stop immediately after writing `EVAL_RESULT.md` and printing the confirmation line**, BECAUSE any action taken after the verdict is written falls outside the Reviewer's mandate and may corrupt loop state. Print exactly: `Wrote verdict: PASS|FAIL to <path>.` substituting the actual verdict and path. Then stop.</exit_after_write>
 
-Do not edit source files. Do not commit. The eval file is the only write this sub-agent performs.
+</output>
 
-</subsection>
-
-</section>
-
-<section name="comment-writing">
-
-Each comment in `<eval:comments>` must contain:
-
-- `file` — the specific file where the problem was observed, or the file that was expected but absent.
-- `line` — the line number where the problem is anchored (optional; omit when the comment is not line-specific).
-- `severity` — one of `"blocker"`, `"suggestion"`, `"nitpick"`. This is a human label; no machine logic acts on it. Use `blocker` for issues that would prevent PASS, `suggestion` for improvements worth making, `nitpick` for minor style points.
-- `comment` — the concrete observation plus the minimum-viable suggested action. Be specific: name the declaration to add, the import to remove, the test assertion to write.
-
-When verdict is PASS, `<eval:comments>` contains an empty YAML list. When verdict is FAIL, at least one comment entry is required.
-
-</section>
-
-<section name="failure-modes">
-
-- Quality gates not available in PATH: report as a FAIL comment with `comment: "Ensure the project's quality gate tools are installed and on PATH before Reviewer is spawned"`.
-- `eval_path` not supplied in the rendered prompt: write the file to `.tap/features/<slug>/eval/EVAL_RESULT.md` as a fallback and note the missing placeholder as a FAIL comment.
-- `git diff --name-only HEAD` returns no output on a fresh repo with no commits: use `git status --short` alone and note the limitation.
-
-</section>
+<gates_not_on_path>**Always report unavailable quality gate tools as a FAIL comment rather than skipping them silently**, BECAUSE skipping a gate without a recorded reason creates ambiguity about whether the code actually passes that gate. Use `comment: "Ensure the project's quality gate tools are installed and on PATH before Reviewer is spawned"`.</gates_not_on_path>

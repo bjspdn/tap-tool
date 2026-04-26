@@ -1,6 +1,9 @@
 import { Effect, Layer, Match, Option } from "effect";
+import { FileSystem } from "@effect/platform";
 import * as nodePath from "node:path";
 import { brand } from "../brand";
+import { AgentRunner } from "../AgentRunner";
+import { ContextEngine, type SummarizerRenderInput } from "../ContextEngine";
 import { FeatureContract } from "../FeatureContract";
 import { RunTask } from "../RunTask";
 import { captureGitStatus } from "./gitStatus";
@@ -13,6 +16,120 @@ import {
 } from "./iterationPolicy";
 import { formatResumeHint, formatIterationFailure } from "./loopReporter";
 import { LoopRunner, MAX_ITERATIONS } from "./LoopRunner";
+
+// ---------------------------------------------------------------------------
+// dispatchTerminalSummary
+// ---------------------------------------------------------------------------
+
+/**
+ * Context passed to `dispatchTerminalSummary` from the LoopRunner's run body.
+ * Groups the filesystem anchors needed to build `SummarizerRenderInput`.
+ */
+type SummaryDispatchCtx = {
+  readonly feature: Feature;
+  readonly featureRoot: AbsolutePath;
+  readonly specsPath: AbsolutePath;
+  readonly contractPath: AbsolutePath;
+};
+
+/**
+ * Dispatches the Summarizer role after a terminal loop state.
+ *
+ * Predicates on `summary.stoppedReason._tag`:
+ *   - `AllDone` | `TaskExhausted` → renders the Summarizer prompt and dispatches
+ *     via AgentRunner so the agent writes SUMMARY.md to `<featureRoot>/SUMMARY.md`.
+ *   - All other variants (`RateLimited`, `MaxIterations`, `NoReadyTasks`) → no-op.
+ *
+ * All dispatch failures — including render errors, agent spawn failures, and
+ * unexpected defects — are absorbed (logged, not propagated) so loop termination
+ * is never gated on Summarizer availability.
+ */
+const dispatchTerminalSummary = (
+  summary: LoopSummary,
+  ctx: SummaryDispatchCtx,
+): Effect.Effect<void, never, AgentRunner | ContextEngine | FileSystem.FileSystem> => {
+  const { stoppedReason } = summary;
+
+  // Only dispatch on terminal-eligible variants; no-op otherwise.
+  if (stoppedReason._tag !== "AllDone" && stoppedReason._tag !== "TaskExhausted") {
+    return Effect.void;
+  }
+
+  const summaryPath = brand<"AbsolutePath">(
+    nodePath.join(ctx.featureRoot as string, "SUMMARY.md"),
+  );
+  const logsDir = brand<"AbsolutePath">(
+    nodePath.join(ctx.featureRoot as string, "logs"),
+  );
+  const summarizerLogPath = brand<"AbsolutePath">(
+    nodePath.join(logsDir as string, "summarizer.jsonl"),
+  );
+  const summarizerStderrLogPath = brand<"AbsolutePath">(
+    nodePath.join(logsDir as string, "summarizer.stderr.log"),
+  );
+
+  // Format stoppedReason as a human-readable string for the Summarizer prompt.
+  const stoppedReasonStr =
+    stoppedReason._tag === "AllDone"
+      ? "AllDone"
+      : `Exhausted (failed tasks: ${stoppedReason.failedTaskIds.join(", ")})`;
+
+  const renderInput: SummarizerRenderInput = {
+    feature: ctx.feature,
+    specsPath: ctx.specsPath,
+    contractPath: ctx.contractPath,
+    summaryPath,
+    stoppedReason: stoppedReasonStr,
+    tasksDone: summary.tasksDone,
+    tasksFailed: summary.tasksFailed,
+  };
+
+  return Effect.gen(function* () {
+    const engine = yield* ContextEngine;
+    const runner = yield* AgentRunner;
+    const fs = yield* FileSystem.FileSystem;
+
+    // Ensure the summarizer logs directory exists before dispatch.
+    yield* fs.makeDirectory(logsDir, { recursive: true });
+
+    // renderSummarizer is optional on the service interface for backward
+    // compatibility with legacy test mocks that only stub Composer/Reviewer.
+    const render = engine.renderSummarizer;
+    if (!render) {
+      yield* Effect.sync(() =>
+        console.error(
+          "[loop-runner] renderSummarizer not available in ContextEngine; skipping summary dispatch",
+        ),
+      );
+      return;
+    }
+
+    const prompt = yield* render(renderInput);
+
+    // Dispatch via the same runner.run envelope used by Composer and Reviewer
+    // (the runRole pattern from commit e9d49c4). "Summarizer" is cast because
+    // AgentRole = "Composer" | "Reviewer" and updating that type is outside
+    // this task's file scope; the runtime value is correct for the CLI dispatcher.
+    yield* runner.run({
+      role: "Summarizer" as unknown as AgentRole,
+      stdin: prompt,
+      cwd: ctx.featureRoot,
+      attempt: 1,
+      logPath: summarizerLogPath,
+      stderrLogPath: summarizerStderrLogPath,
+    });
+  }).pipe(
+    // Absorb all failures and defects — Summarizer dispatch must never gate
+    // loop termination. The terminal status returned by LoopRunner is authoritative.
+    Effect.catchAllCause((cause) =>
+      Effect.sync(() =>
+        console.error(
+          `[loop-runner] summarizer dispatch failed (non-fatal): ${cause}`,
+        ),
+      ),
+    ),
+  );
+};
 
 // ---------------------------------------------------------------------------
 // LoopRunnerLive
@@ -147,6 +264,10 @@ export const LoopRunnerLive: Layer.Layer<LoopRunner, never, never> = Layer.succe
         if (summary.tasksFailed.length > 0) {
           yield* Effect.sync(() => console.log(formatResumeHint(summary, allTasks)));
         }
+
+        // Dispatch Summarizer on terminal-eligible states. Failures are absorbed
+        // inside the helper — terminal status stays authoritative regardless.
+        yield* dispatchTerminalSummary(summary, { feature, featureRoot, specsPath, contractPath });
 
         return summary;
       }),
