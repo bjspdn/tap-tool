@@ -1,4 +1,4 @@
-import { Effect, Layer, Match, Option } from "effect";
+import { Effect, Either, Layer, Match, Option, Ref } from "effect";
 import { FileSystem } from "@effect/platform";
 import * as nodePath from "node:path";
 import { brand } from "../brand";
@@ -16,6 +16,51 @@ import {
 } from "./iterationPolicy";
 import { formatResumeHint, formatIterationFailure } from "./loopReporter";
 import { LoopRunner, MAX_ITERATIONS } from "./LoopRunner";
+
+// ---------------------------------------------------------------------------
+// Dashboard state helpers
+// ---------------------------------------------------------------------------
+
+/** Recompute aggregated totals from the current stories array. */
+const recomputeTotals = (
+  stories: ReadonlyArray<DashboardStoryState>,
+): DashboardTotals => {
+  const allTasks = stories.flatMap((s) => s.tasks);
+  return {
+    tokensUsed: allTasks.reduce((acc, t) => acc + t.tokensUsed, 0),
+    costUsd: allTasks.reduce((acc, t) => acc + t.costUsd, 0),
+    tasksDone: allTasks.filter((t) => t.status === "done").length,
+    tasksFailed: allTasks.filter((t) => t.status === "failed").length,
+    tasksPending: allTasks.filter(
+      (t) => t.status === "pending" || t.status === "in_progress",
+    ).length,
+  };
+};
+
+/**
+ * Return a new `DashboardState` with the task matching `taskId` replaced by
+ * `fn(existingTask)`. Totals are recomputed from the updated stories.
+ */
+const updateDashTask = (
+  state: DashboardState,
+  taskId: TaskId,
+  fn: (t: DashboardTaskState) => DashboardTaskState,
+): DashboardState => {
+  const stories = state.stories.map((story) => ({
+    ...story,
+    tasks: story.tasks.map((t) => (t.taskId === taskId ? fn(t) : t)),
+  }));
+  return { ...state, stories, totals: recomputeTotals(stories) };
+};
+
+/**
+ * Build a state-update helper that forwards to `Ref.update` when a Ref is
+ * present, or is a no-op when none was supplied (non-TTY / legacy callers).
+ */
+const makeDashUpdater =
+  (dashboardRef: Ref.Ref<DashboardState> | undefined) =>
+  (fn: (s: DashboardState) => DashboardState): Effect.Effect<void> =>
+    dashboardRef ? Ref.update(dashboardRef, fn) : Effect.void;
 
 // ---------------------------------------------------------------------------
 // dispatchTerminalSummary
@@ -147,15 +192,19 @@ const dispatchTerminalSummary = (
 export const LoopRunnerLive: Layer.Layer<LoopRunner, never, never> = Layer.succeed(
   LoopRunner,
   LoopRunner.of({
-    run: (contractPath) =>
+    run: (contractPath, dashboardRef) =>
       Effect.gen(function* () {
         const fc = yield* FeatureContract;
         const rt = yield* RunTask;
+        // Capture the outer AgentRunner so the per-task hook can delegate to it.
+        const agentRunner = yield* AgentRunner;
 
         let feature = yield* fc.load(contractPath);
 
         const featureRoot = brand<"AbsolutePath">(nodePath.dirname(contractPath));
         const specsPath = brand<"AbsolutePath">(nodePath.join(featureRoot as string, "SPECS.md"));
+
+        const updateDash = makeDashUpdater(dashboardRef);
 
         let iterations = 0;
         let stoppedReason: StoppedReason | null = null;
@@ -174,8 +223,56 @@ export const LoopRunnerLive: Layer.Layer<LoopRunner, never, never> = Layer.succe
           feature = fc.markStatus(feature, task.id, "in_progress");
           yield* fc.save(contractPath, feature);
 
+          // Dashboard: mark task in_progress and record start time.
+          yield* updateDash((state) =>
+            updateDashTask(state, task.id, (t) => ({
+              ...t,
+              status: "in_progress",
+              phase: Option.some("Composer" as AgentRole),
+              startedAt: Option.some(Date.now()),
+            })),
+          );
+
           const priorEvalPath = yield* resolvePriorEvalPath(featureRoot, task.id, attempt);
           const gitStatus = yield* captureGitStatus(featureRoot);
+
+          // Build a per-task AgentRunner hook that intercepts each role call within
+          // RunTask.run. After Composer completes (and before Reviewer starts) the hook
+          // transitions phase → Reviewer. After each role call it accumulates token/cost
+          // data from the AgentRunner result into the dashboard Ref.
+          const hookedAgentRunner = AgentRunner.of({
+            run: (opts) =>
+              Effect.gen(function* () {
+                const result = yield* agentRunner.run(opts);
+
+                // Phase transition: Composer → Reviewer (fires once, between the two roles)
+                if (opts.role === "Composer") {
+                  yield* updateDash((state) =>
+                    updateDashTask(state, task.id, (t) => ({
+                      ...t,
+                      phase: Option.some("Reviewer" as AgentRole),
+                    })),
+                  );
+                }
+
+                // Accumulate token/cost from each agent run
+                const tokens =
+                  (result.result.usage?.input_tokens ?? 0) +
+                  (result.result.usage?.output_tokens ?? 0);
+                const cost = result.result.total_cost_usd ?? 0;
+                if (tokens > 0 || cost > 0) {
+                  yield* updateDash((state) =>
+                    updateDashTask(state, task.id, (t) => ({
+                      ...t,
+                      tokensUsed: t.tokensUsed + tokens,
+                      costUsd: t.costUsd + cost,
+                    })),
+                  );
+                }
+
+                return result;
+              }),
+          });
 
           const outcome = yield* rt
             .run(task, feature, {
@@ -186,7 +283,10 @@ export const LoopRunnerLive: Layer.Layer<LoopRunner, never, never> = Layer.succe
               priorEvalPath,
               gitStatus,
             })
-            .pipe(Effect.either);
+            .pipe(
+              Effect.provideService(AgentRunner, hookedAgentRunner),
+              Effect.either,
+            );
 
           const decision = decideIteration(attempt, task.maxAttempts, outcome);
 
@@ -216,6 +316,20 @@ export const LoopRunnerLive: Layer.Layer<LoopRunner, never, never> = Layer.succe
                     ),
                   ),
                 );
+                // Dashboard: mark task done; record elapsed duration from TaskResult.
+                // Token/cost data is accumulated via the hookedAgentRunner interceptor
+                // above (one call per role) and preserved by the ...t spread below.
+                const dur = Either.isRight(outcome)
+                  ? Option.some(outcome.right.durationMs)
+                  : Option.none<number>();
+                yield* updateDash((state) =>
+                  updateDashTask(state, task.id, (t) => ({
+                    ...t,
+                    status: "done",
+                    phase: Option.none(),
+                    durationMs: dur,
+                  })),
+                );
                 return { halt: null as StoppedReason | null };
               }),
             ),
@@ -225,6 +339,13 @@ export const LoopRunnerLive: Layer.Layer<LoopRunner, never, never> = Layer.succe
                 yield* fc.save(contractPath, feature);
                 yield* Effect.sync(() =>
                   console.error(formatIterationFailure(iterations, task, attempt, outcome)),
+                );
+                // Dashboard: clear phase between retry attempts; status stays in_progress.
+                yield* updateDash((state) =>
+                  updateDashTask(state, task.id, (t) => ({
+                    ...t,
+                    phase: Option.none(),
+                  })),
                 );
                 return { halt: null as StoppedReason | null };
               }),
@@ -236,6 +357,14 @@ export const LoopRunnerLive: Layer.Layer<LoopRunner, never, never> = Layer.succe
                 yield* fc.save(contractPath, feature);
                 yield* Effect.sync(() =>
                   console.error(formatIterationFailure(iterations, task, attempt, outcome)),
+                );
+                // Dashboard: mark task failed and clear active phase.
+                yield* updateDash((state) =>
+                  updateDashTask(state, task.id, (t) => ({
+                    ...t,
+                    status: "failed",
+                    phase: Option.none(),
+                  })),
                 );
                 return {
                   halt: {
@@ -254,12 +383,17 @@ export const LoopRunnerLive: Layer.Layer<LoopRunner, never, never> = Layer.succe
           }
         }
 
-        if (stoppedReason === null) {
-          stoppedReason = { _tag: "MaxIterations", cap: MAX_ITERATIONS };
-        }
+        const reason: StoppedReason =
+          stoppedReason ?? { _tag: "MaxIterations", cap: MAX_ITERATIONS };
+
+        // Dashboard: record terminal reason now that the loop has stopped.
+        yield* updateDash((state) => ({
+          ...state,
+          stoppedReason: Option.some(reason),
+        }));
 
         const allTasks = feature.stories.flatMap((s) => s.tasks);
-        const summary = buildLoopSummary(feature, iterations, stoppedReason);
+        const summary = buildLoopSummary(feature, iterations, reason);
 
         if (summary.tasksFailed.length > 0) {
           yield* Effect.sync(() => console.log(formatResumeHint(summary, allTasks)));

@@ -1,4 +1,4 @@
-import { Context, Effect } from "effect";
+import { Context, Effect, Ref } from "effect";
 import { CommandExecutor, FileSystem } from "@effect/platform";
 import { FeatureContract } from "../FeatureContract";
 import { RunTask } from "../RunTask";
@@ -32,6 +32,7 @@ export class LoopRunner extends Context.Tag("LoopRunner")<
   {
     readonly run: (
       contractPath: AbsolutePath,
+      dashboardRef?: Ref.Ref<DashboardState>,
     ) => Effect.Effect<
       LoopSummary,
       FeatureContractError | RunTaskError,
