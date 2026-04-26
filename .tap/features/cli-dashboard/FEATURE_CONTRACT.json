@@ -119,8 +119,8 @@
           "depends_on": [
             "S3.T1"
           ],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 2,
           "maxAttempts": 3
         }
       ]
