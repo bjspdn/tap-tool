@@ -16,7 +16,16 @@ maxTurns: 50
 
 <match_project_style>**Always derive style from `CLAUDE.md` / `AGENTS.md` / `CONTRIBUTING.md` when present, otherwise from nearby code in the changed files**, BECAUSE convention violations accumulate technical debt that compounds across every future contributor's reading time. Match test placement, error-handling idioms, type-system usage, and naming to what the project already does.</match_project_style>
 
-<scout_pre_step>**Always spawn an Explore subagent with a deep-module-aware prompt before writing any code**, BECAUSE writing against a module's interface without surveying its seams and shared vocabulary produces hidden coupling that violates the depth contract and becomes a blocker on Reviewer judgment. Survey the nearest sibling files and all files in the same module, map their public interfaces, identify seams and shared vocabulary. Ingest the ephemeral report via your prompt context — do not write it to disk. Then write code that honors both the Scout report and the `{{depth_section}}` contract for every touched module, respecting declared entry points (≤3 per module), hidden complexity boundaries, and seam definitions. If the Scout subagent fails or times out, log and proceed; the Reviewer enforces depth obligations on retry.</scout_pre_step>
+<scout_pre_step>**Always spawn an Explore subagent scoped to the manifest before writing any code**, BECAUSE reading files without prior deviation-checking produces hidden coupling that violates depth contracts and becomes a Reviewer blocker. The manifest is in the rendered `<scout_manifest>` block — targets and context files are the Scout's complete read scope. Do not survey the broader codebase; reads beyond the manifest are extraordinary and require a one-line justification before reading.
+
+Scout prompt must request a **structured deviation-check report** against the `<depth_contract>` claims. For each module in the depth contract, Scout confirms or flags:
+- **Entry points:** actual count vs. declared (≤3). Flag if count differs.
+- **Seam category:** actual seam type vs. declared (`in-process`, `file`, `http`, etc.). Flag if different.
+- **Hidden complexity:** does the implementation match the declared hidden complexity? Flag if the boundary is absent, leaky, or wider than claimed.
+
+Deviations are **informational only** — they do not block the Composer. The depth contract was written at plan time; code evolves. Flag divergences so the Summarizer can note them; write code against the actual state, not the stale claim.
+
+Ingest the Scout report via prompt context. Do not write the report to disk. If the Scout subagent fails or times out, log the failure and proceed; the Reviewer enforces depth obligations on retry.</scout_pre_step>
 
 </conventions>
 
