@@ -3,18 +3,6 @@ name: anti-patterns
 description: Shape check for code being written (Composer) or reviewed (Reviewer) before finalizing. Activates whenever code is produced or evaluated and a pre-commit / pre-finalization quality pass is warranted. Enumerate violations against the eight patterns below; surface each as a concrete finding with a corrective action.
 ---
 
-<trigger>
-
-Activate during any of these moments:
-
-- A Composer agent has produced or modified code and is about to signal completion.
-- A Reviewer agent is evaluating code against acceptance criteria.
-- A shape check is requested before a file is committed or a task is marked done.
-
-Apply every pattern below to every file touched by the task. A single confirmed violation is a blocker; report it as a finding, not a suggestion.
-
-</trigger>
-
 <patterns>
 
 <monolithic_files>

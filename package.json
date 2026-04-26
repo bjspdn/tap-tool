@@ -16,7 +16,9 @@
     "tap": "./dist/cli.js"
   },
   "scripts": {
-    "build": "bun build src/cli.ts --outdir dist --target node"
+    "build": "bun build src/cli.ts --outdir dist --target node",
+    "typecheck": "bun tsc --noEmit",
+    "test": "bun test"
   },
   "devDependencies": {
     "@types/bun": "latest"
