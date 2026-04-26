@@ -1,0 +1,145 @@
+{
+  "feature": "context-scoping",
+  "goal": "Reduce token waste by replacing unbounded agent exploration with orchestrator-curated context delivery via scoped manifests, graduated read policies, and git-based memory caching.",
+  "description": "ContextEngine builds a ScoutManifest from task.files and SPECS.md depth entries, resolving module paths to concrete sibling files. COMPOSER_CONTRACT and REVIEWER_CONTRACT replace blanket read permissions with graduated friction (manifest = expected, task.files = expected, anything else = extraordinary + justify). Scout produces structured deviation checks instead of freeform surveys. Project memory with git-based staleness caches module patterns across tasks.",
+  "constraints": [
+    "ContextEngine public interface stays at 3 render entry points — manifest building is internal hidden complexity",
+    "All read constraints use graduated friction, never hard walls — rigid constraints caused death spirals in prior features",
+    "Reviewer must NOT receive memory: project — clean slate judgment every time",
+    "Scout deviations from depth_section are informational, never blocking",
+    "No generic type-dependency resolution — agent infers project-specific conventions from CLAUDE.md",
+    "Memory entries are per-module with git commit hash for staleness"
+  ],
+  "stories": [
+    {
+      "id": "S1",
+      "title": "Manifest resolution in ContextEngine",
+      "description": "ContextEngine grows internal manifest-building capability that parses depth_section module paths, resolves sibling files via filesystem, and injects the structured result into rendered prompts — hidden behind existing render interface.",
+      "tasks": [
+        {
+          "id": "S1.T1",
+          "title": "ScoutManifest type definitions",
+          "description": "Define ScoutManifest and ManifestEntry as ambient types in src/types/Manifest.d.ts. ScoutManifest has targets (task.files with reason) and context (sibling files with module name and reason). ManifestEntry has path, reason, and optional module fields.",
+          "files": [
+            "src/types/Manifest.d.ts"
+          ],
+          "depends_on": [],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S1.T2",
+          "title": "buildManifest + readDir dependency + render integration",
+          "description": "Add internal buildManifest to ContextEngine that parses <spec:depth> module paths from depth_section string, resolves sibling files via new readDir dependency, deduplicates against task.files, returns ScoutManifest. Wire into renderComposer and renderReviewer as new template variable scout_manifest. Add readDir to ContextEngine dependency surface (ContextEngineLive provides it). Tests in src/services/__tests__/ContextEngine.test.ts cover: file path resolves to parent dir siblings, directory path resolves to children, missing path skips gracefully, empty depth section yields targets only, overlapping modules deduplicate.",
+          "files": [
+            "src/services/ContextEngine.ts",
+            "src/services/__tests__/ContextEngine.test.ts"
+          ],
+          "depends_on": [
+            "S1.T1"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        }
+      ]
+    },
+    {
+      "id": "S2",
+      "title": "Composer context scoping",
+      "description": "COMPOSER_CONTRACT template gets manifest presentation and graduated read policy. Composer.md scout_pre_step is rewritten to use manifest-scoped survey with structured deviation-check report format.",
+      "tasks": [
+        {
+          "id": "S2.T1",
+          "title": "COMPOSER_CONTRACT.md manifest section + graduated read policy",
+          "description": "Add {{scout_manifest}} section to COMPOSER_CONTRACT.md rendering targets and context files with reasons. Replace blanket 'You may read any file in the repository for context' with graduated read policy: manifest files and task_files are expected reads; anything else is extraordinary and requires a one-line justification before reading. Add anti-rationalization note framing unbounded exploration as a red flag, not a default.",
+          "files": [
+            ".tap/prompts/COMPOSER_CONTRACT.md"
+          ],
+          "depends_on": [
+            "S1.T2"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S2.T2",
+          "title": "Composer.md scout_pre_step rewrite",
+          "description": "Rewrite scout_pre_step in Composer.md to instruct Scout to use the manifest from the rendered prompt as its read scope instead of unbounded codebase survey. Scout report format: structured deviation checks against depth_section claims — for each module, confirm or flag entry point count, seam category, hidden complexity. Deviations are informational only. Report is ephemeral (ingested via prompt context, not written to disk).",
+          "files": [
+            ".claude/agents/Composer.md"
+          ],
+          "depends_on": [
+            "S2.T1"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        }
+      ]
+    },
+    {
+      "id": "S3",
+      "title": "Reviewer context scoping",
+      "description": "REVIEWER_CONTRACT template gets parallel scope constraint — judge from git diff and depth contract, read source only to verify specific claims, same graduated friction as Composer.",
+      "tasks": [
+        {
+          "id": "S3.T1",
+          "title": "REVIEWER_CONTRACT.md parallel scope constraint",
+          "description": "Add scoped read constraint to REVIEWER_CONTRACT.md — primary inputs are git diff output, depth contract, and task description. Reading source files is allowed only to verify specific claims in the diff, not for general exploration. Include scout_manifest for reference. Same graduated friction: manifest and task_files are expected reads, anything else is extraordinary with one-line justification. No memory: project for Reviewer — clean slate by design.",
+          "files": [
+            ".tap/prompts/REVIEWER_CONTRACT.md"
+          ],
+          "depends_on": [
+            "S1.T2"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        }
+      ]
+    },
+    {
+      "id": "S4",
+      "title": "deep-modules skill alignment",
+      "description": "Update write_overlay and judge_overlay in deep-modules SKILL.md to match the new scoped manifest pattern instead of assuming unbounded codebase surveys.",
+      "tasks": [
+        {
+          "id": "S4.T1",
+          "title": "Update write_scout_survey and judge_reinvention",
+          "description": "Rewrite write_scout_survey to match scoped deviation-check pattern: Scout reads manifest files, confirms or flags depth_section claims per module (entry points, seam, hidden complexity), produces structured report — not a freeform paragraph survey. Update judge_reinvention to reference manifest-scoped survey instead of assuming a full codebase sweep was performed. Keep vocabulary and other overlays unchanged.",
+          "files": [
+            ".claude/skills/deep-modules/SKILL.md"
+          ],
+          "depends_on": [],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        }
+      ]
+    },
+    {
+      "id": "S5",
+      "title": "Memory integration",
+      "description": "Composer gains project memory for cross-task pattern caching. Scout recalls memory before reading manifest files and saves discoveries with git commit hash for staleness detection.",
+      "tasks": [
+        {
+          "id": "S5.T1",
+          "title": "Scout memory protocol in Composer.md",
+          "description": "Add memory: project to Composer.md frontmatter. Extend scout_pre_step with memory protocol: before reading a manifest file, Scout recalls project memory for that file's module. If memory exists and git diff <stored-hash> HEAD -- <file> is empty, trust memory and skip the read. If stale or missing, read the file, then save patterns (entry points, seam category, naming conventions, error idioms) to project memory with current commit hash. One memory entry per module, not per file.",
+          "files": [
+            ".claude/agents/Composer.md"
+          ],
+          "depends_on": [
+            "S2.T2"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        }
+      ]
+    }
+  ]
+}
