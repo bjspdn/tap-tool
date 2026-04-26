@@ -83,6 +83,11 @@ const runUpdate = (cwd: string) =>
     .update()
     .pipe(Effect.provide(NodeFileSystem.layer));
 
+const runRemove = (cwd: string) =>
+  makeScaffold(packageRoot, cwd)
+    .remove()
+    .pipe(Effect.provide(NodeFileSystem.layer));
+
 // ---------------------------------------------------------------------------
 // Tests — init
 // ---------------------------------------------------------------------------
@@ -296,5 +301,69 @@ describe("Scaffold.update", () => {
     if (Exit.isFailure(exit)) {
       expect(JSON.stringify(exit.cause)).toContain("ManifestReadFailed");
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests — remove
+// ---------------------------------------------------------------------------
+
+describe("Scaffold.remove", () => {
+  test("normal remove: deletes managed .claude/ files and .tap/ directory", async () => {
+    await Effect.runPromise(runInit(tmpDir));
+    await Effect.runPromise(runRemove(tmpDir));
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const tapExists = yield* fs.exists(nodePath.join(tmpDir, ".tap"));
+        const agentsExists = yield* fs.exists(nodePath.join(tmpDir, ".claude", "agents"));
+        return { tapExists, agentsExists };
+      }).pipe(Effect.provide(NodeFileSystem.layer)),
+    );
+
+    expect(result.tapExists).toBe(false);
+    expect(result.agentsExists).toBe(false);
+  });
+
+  test("refuses with ManifestReadFailed when not initialised", async () => {
+    // tmpDir has no manifest — never initialised
+    const exit = await Effect.runPromise(runRemove(tmpDir).pipe(Effect.exit));
+
+    expect(Exit.isFailure(exit)).toBe(true);
+    if (Exit.isFailure(exit)) {
+      expect(JSON.stringify(exit.cause)).toContain("ManifestReadFailed");
+    }
+  });
+
+  test("partial .claude/ cleanup: leaves non-tap files, removes managed files and empty dirs", async () => {
+    // Init so managed files exist
+    await Effect.runPromise(runInit(tmpDir));
+
+    // Add a non-tap file in .claude/ root (NOT in manifest)
+    const nonTapFile = nodePath.join(tmpDir, ".claude", "my-custom-file.md");
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        yield* fs.writeFileString(nonTapFile, "user content");
+      }).pipe(Effect.provide(NodeFileSystem.layer)),
+    );
+
+    await Effect.runPromise(runRemove(tmpDir));
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const nonTapExists = yield* fs.exists(nonTapFile);
+        const tapExists = yield* fs.exists(nodePath.join(tmpDir, ".tap"));
+        // .claude/ itself should still exist because nonTapFile is in it
+        const claudeExists = yield* fs.exists(nodePath.join(tmpDir, ".claude"));
+        return { nonTapExists, tapExists, claudeExists };
+      }).pipe(Effect.provide(NodeFileSystem.layer)),
+    );
+
+    expect(result.nonTapExists).toBe(true);   // user file preserved
+    expect(result.tapExists).toBe(false);      // .tap/ gone
+    expect(result.claudeExists).toBe(true);   // .claude/ kept (non-empty)
   });
 });

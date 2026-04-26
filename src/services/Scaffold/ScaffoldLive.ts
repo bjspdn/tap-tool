@@ -65,6 +65,45 @@ const walkDir = (
   });
 
 // ---------------------------------------------------------------------------
+// Directory pruner
+// ---------------------------------------------------------------------------
+
+/**
+ * Recursively remove empty directories under `dir` (bottom-up).
+ * Leaves directories that contain any non-managed files untouched.
+ */
+const pruneEmptyDirs = (
+  fs: FileSystem.FileSystem,
+  dir: string,
+  cwd: string,
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const entries = yield* fs
+      .readDirectory(dir)
+      .pipe(Effect.catchAll(() => Effect.succeed([])));
+
+    for (const entry of entries) {
+      const full = nodePath.join(dir, entry);
+      const info = yield* fs
+        .stat(full)
+        .pipe(Effect.catchAll(() => Effect.succeed(null)));
+      if (info?.type === "Directory") {
+        yield* pruneEmptyDirs(fs, full, cwd);
+      }
+    }
+
+    // Re-check after recursing — children may now be gone.
+    const remaining = yield* fs
+      .readDirectory(dir)
+      .pipe(Effect.catchAll(() => Effect.succeed([])));
+    if (remaining.length === 0) {
+      yield* fs.remove(dir, { recursive: true }).pipe(Effect.orDie);
+      const relDir = nodePath.relative(cwd, dir);
+      yield* Effect.sync(() => console.log(`  removed ${relDir}/`));
+    }
+  });
+
+// ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
 
@@ -129,11 +168,13 @@ export const makeScaffold = (
   cwd: string,
 ): Scaffold["Type"] & {
   update: () => Effect.Effect<void, ScaffoldError, FileSystem.FileSystem>;
+  remove: () => Effect.Effect<void, ScaffoldError, FileSystem.FileSystem>;
 } => {
   const manifestPath = nodePath.join(cwd, ".tap", "manifest.json");
 
   const svc: Scaffold["Type"] & {
     update: () => Effect.Effect<void, ScaffoldError, FileSystem.FileSystem>;
+    remove: () => Effect.Effect<void, ScaffoldError, FileSystem.FileSystem>;
   } = {
     // -------------------------------------------------------------------------
     // init
@@ -288,6 +329,57 @@ export const makeScaffold = (
             ),
           );
         yield* Effect.sync(() => console.log("  updated .tap/manifest.json"));
+      }),
+
+    // -------------------------------------------------------------------------
+    // remove
+    // -------------------------------------------------------------------------
+    remove: () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+
+        // Refuse if not initialised.
+        const manifestExists = yield* fs.exists(manifestPath);
+        if (!manifestExists) {
+          return yield* Effect.fail<ScaffoldError>({
+            _tag: "ManifestReadFailed",
+            path: manifestPath,
+            cause: new Error(
+              "tap is not initialised in this directory — run `tap init` first",
+            ),
+          });
+        }
+
+        // Read manifest.
+        const manifestRaw = yield* fs.readFileString(manifestPath).pipe(
+          Effect.catchAll((cause) =>
+            Effect.fail<ScaffoldError>({ _tag: "ManifestReadFailed", path: manifestPath, cause }),
+          ),
+        );
+        const manifest = JSON.parse(manifestRaw) as InstallManifest;
+
+        // Delete managed .claude/ files listed in the manifest.
+        const claudeFiles = manifest.files.filter((f) => f.startsWith(".claude/"));
+        for (const relPath of claudeFiles) {
+          const absPath = nodePath.join(cwd, relPath);
+          const exists = yield* fs.exists(absPath);
+          if (exists) {
+            yield* fs.remove(absPath).pipe(Effect.orDie);
+            yield* Effect.sync(() => console.log(`  removed ${relPath}`));
+          }
+        }
+
+        // Prune empty .claude/ subdirectories left behind.
+        const claudeDir = nodePath.join(cwd, ".claude");
+        const claudeDirExists = yield* fs.exists(claudeDir);
+        if (claudeDirExists) {
+          yield* pruneEmptyDirs(fs, claudeDir, cwd);
+        }
+
+        // Remove .tap/ entirely (features, prompts, manifest, everything).
+        const tapDir = nodePath.join(cwd, ".tap");
+        yield* fs.remove(tapDir, { recursive: true }).pipe(Effect.orDie);
+        yield* Effect.sync(() => console.log("  removed .tap/"));
       }),
   };
 
