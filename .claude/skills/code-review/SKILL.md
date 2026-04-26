@@ -42,14 +42,19 @@ If the task produced only static documentation, the relevant quality gates may n
 
 </zero_trust_verification>
 
-<scope_check>**Always enumerate every file touched since the last clean commit and compare against `task_files` before issuing a verdict**, BECAUSE the Composer's report of which files it touched is untrusted; the working tree is the only authoritative source for scope verification.
+<scope_check>**Always run ground-truth commands first and compare against both `task_files` and the `scout_manifest` before issuing a verdict**, BECAUSE the Composer's report of which files it touched is untrusted; the working tree is the only authoritative source for scope verification.
 
 ```
-git diff --name-only HEAD
-git status --short
+- Git status: !`git status --short`
+- Git diff: !`git diff --stat`
+- Git diff (name only): !`git diff --name-only HEAD`
 ```
 
-Any file in the diff that is not in `task_files` is a scope violation. Scope violations produce a FAIL comment regardless of whether the file change appears benign. Report each out-of-scope file by name.
+**Scope verification (in order):**
+1. Any file in the diff that is not in `task_files` is a scope violation → automatic FAIL. Report each out-of-scope file by name.
+2. For verification reads: `task_files` and `scout_manifest` entries (targets + context) are expected reads — no justification needed.
+3. Reads outside both `task_files` and the manifest are extraordinary. Before each such read, state one line: which specific claim in the diff you are verifying and why the diff alone is insufficient.
+4. If you need more than two extraordinary reads, stop. Report the scope gap as a finding in your verdict rather than continuing to explore.
 
 Note: if `git diff --name-only HEAD` returns no output on a fresh repo with no commits, use `git status --short` alone and note the limitation.</scope_check>
 
