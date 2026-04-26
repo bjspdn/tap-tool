@@ -1,0 +1,129 @@
+{
+  "feature": "cli-dashboard",
+  "goal": "Replace bootstrap.ts with a proper `tap run <feature>` CLI command and embed a real-time terminal dashboard showing task progress, costs, and decorated terminal states.",
+  "description": "Build a `tap run <feature>` CLI using @effect/cli and an embedded terminal dashboard driven by in-memory Ref<DashboardState>. Dashboard shows grouped stories/tasks with status glyphs, token costs, durations, and color-coded end states. Auto-detects TTY for graceful fallback.",
+  "constraints": [
+    "Use @effect/cli for command definition and argument parsing",
+    "Raw ANSI escape codes + Bun built-in string utilities for rendering — no external TUI libraries",
+    "Dashboard state via Ref<DashboardState> — no file-tailing",
+    "JSONL logs still written to disk for post-mortem; dashboard does not read them",
+    "Non-TTY auto-fallback to plain scrolling log lines",
+    "Keyboard: q to quit only",
+    "Glyphs: · pending, › active, ✓ done, ✗ failed",
+    "Tasks grouped by story (Sx header), tasks show Tx only within groups",
+    "Decorated end states: green AllDone, red TaskExhausted, yellow RateLimited/MaxIterations/NoReadyTasks",
+    "Delete scripts/bootstrap.ts after CLI entry is operational",
+    "Follow existing Effect service patterns: Layer, Context.Tag, branded types, discriminated unions"
+  ],
+  "stories": [
+    {
+      "id": "S1",
+      "title": "DashboardState type and LoopRunner integration",
+      "description": "Define the shared DashboardState type and modify LoopRunner to accept and update a Ref<DashboardState> at each state transition.",
+      "tasks": [
+        {
+          "id": "S1.T1",
+          "title": "DashboardState ambient type",
+          "description": "Create `src/types/Dashboard.d.ts` with ambient declarations for `DashboardState`, `DashboardStoryState`, `DashboardTaskState`, and `DashboardTotals`. Use `Option` for `phase` and `stoppedReason` fields. Follow existing ambient type conventions in `src/types/`.",
+          "files": [
+            "src/types/Dashboard.d.ts"
+          ],
+          "depends_on": [],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S1.T2",
+          "title": "LoopRunner Ref<DashboardState> integration",
+          "description": "Modify `LoopRunner.run` signature to accept `Ref<DashboardState>`. Update `LoopRunnerLive` to call `Ref.update` at each transition: task start (status → in_progress, phase → Composer), phase change (→ Reviewer), cost/token accumulation from TaskResult, task completion (status → done|failed, phase → None), and terminal state (stoppedReason → Some). Update existing LoopRunner tests to provide the Ref.",
+          "files": [
+            "src/services/LoopRunner/LoopRunner.ts",
+            "src/services/LoopRunner/LoopRunnerLive.ts",
+            "src/services/LoopRunner/__tests__/LoopRunner.test.ts"
+          ],
+          "depends_on": [
+            "S1.T1"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        }
+      ]
+    },
+    {
+      "id": "S2",
+      "title": "Dashboard renderer",
+      "description": "Build the pure render function and the Effect service that drives the terminal dashboard.",
+      "tasks": [
+        {
+          "id": "S2.T1",
+          "title": "Pure renderFrame function and tests",
+          "description": "Create `src/services/Dashboard/renderFrame.ts` with `renderFrame(state: DashboardState, columns: number) → string`. Implements grouped story/task layout with Set A glyphs (· › ✓ ✗), right-aligned cost ($X.XX) and duration per task, footer with total tokens and cost, decorated end-state footer with ANSI colors. Use `Bun.stringWidth()` and `Bun.sliceAnsi()` for column-aware layout. Tests in `src/services/Dashboard/__tests__/renderFrame.test.ts` cover: all-pending state, mixed statuses, decorated end states (AllDone green, TaskExhausted red, RateLimited yellow), narrow terminal truncation.",
+          "files": [
+            "src/services/Dashboard/renderFrame.ts",
+            "src/services/Dashboard/__tests__/renderFrame.test.ts"
+          ],
+          "depends_on": [
+            "S1.T1"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S2.T2",
+          "title": "Dashboard Effect service",
+          "description": "Create `src/services/Dashboard/Dashboard.ts` with Effect service exposing `run(ref: Ref<DashboardState>) → Effect<void>`. Implements: TTY detection via @effect/platform Terminal, refresh loop reading ref on ~200ms schedule and calling renderFrame, ANSI cursor-home + clear before each frame write, `q` keypress handling via Terminal.readInput to interrupt, plain-line fallback for non-TTY, terminal cleanup on exit (show cursor). Export via `src/services/Dashboard/index.ts`.",
+          "files": [
+            "src/services/Dashboard/Dashboard.ts",
+            "src/services/Dashboard/index.ts"
+          ],
+          "depends_on": [
+            "S2.T1"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        }
+      ]
+    },
+    {
+      "id": "S3",
+      "title": "CLI entry and cleanup",
+      "description": "Wire the @effect/cli command, connect all services, and remove the old bootstrap script.",
+      "tasks": [
+        {
+          "id": "S3.T1",
+          "title": "CLI entry point with tap run command",
+          "description": "Create `src/cli.ts` using @effect/cli: define `tap` command with `run` subcommand accepting a positional `feature` arg. Handler creates `Ref<DashboardState>` initialized from the loaded contract, forks LoopRunner.run and Dashboard.run as concurrent fibers, awaits loop completion then signals dashboard to render final frame and exit. Add `bin` field to `package.json` pointing to `src/cli.ts`. Wire all existing Effect layers (LoopRunnerLive, FeatureContractLive, RunTaskLive, ContextEngineLive, EvalParserLive, AgentRunnerLive, BunContext).",
+          "files": [
+            "src/cli.ts",
+            "package.json"
+          ],
+          "depends_on": [
+            "S1.T2",
+            "S2.T2"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S3.T2",
+          "title": "Delete bootstrap script",
+          "description": "Delete `scripts/bootstrap.ts`. Verify no other scripts or docs reference it; update any that do.",
+          "files": [
+            "scripts/bootstrap.ts"
+          ],
+          "depends_on": [
+            "S3.T1"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        }
+      ]
+    }
+  ]
+}
