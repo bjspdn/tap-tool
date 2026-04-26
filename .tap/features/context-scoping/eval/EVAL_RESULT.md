@@ -1,0 +1,9 @@
+<eval:verdict>PASS</eval:verdict>
+<eval:summary>
+Diff realizes S5.T1 cleanly. Frontmatter gains `memory: project` at line 6. The scout_pre_step block (lines 22-35) inserts a four-step memory protocol that hits every description requirement: recall keyed by module path, staleness check via `git diff <stored-hash> HEAD -- <module-path>`, trust-and-skip on empty diff, re-read and save patterns on stale/missing with `git rev-parse HEAD`. The four pattern fields named in the description — entry points, seam category, naming conventions, error idioms — appear verbatim as bullets in step 4. The "one entry per module, not per file" rule is stated twice (line 24 parenthetical and the closing line 35 paragraph that handles the multi-file case via primary path + sibling list). The protocol is positioned before the existing deviation-check instructions, so it executes "before reading any manifest file" as specified. Depth-contract module "Composer agent definition" declares hidden complexity that explicitly includes "memory recall/save protocol with git-based staleness" — diff fills that slot rather than leaking new entry points; still one load entry point. Seam stays `file`. No anti-pattern violations: no monolithic growth, no duplication, no magic literals, identifiers are precise. Scope: `.claude/agents/Composer.md` is the only authored change. `FEATURE_CONTRACT.json` flipped S5.T1 status `pending → in_progress` — loop-runner orchestration, not Composer authorship; flagged as nitpick. `eval/` is the Reviewer's own output dir. No quality gates apply to a markdown agent definition (no compile/test surface). All five PASS conditions hold.
+</eval:summary>
+<eval:comments>
+- file: ".tap/features/context-scoping/FEATURE_CONTRACT.json"
+  severity: "nitpick"
+  comment: "Status flip pending→in_progress is loop-runner orchestration metadata, technically outside task_files. Not attributable to Composer authorship; flagged for transparency."
+</eval:comments>
