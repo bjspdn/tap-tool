@@ -1,7 +1,7 @@
 import { describe, test, expect, afterAll } from "bun:test";
 import { Effect, Exit, Layer } from "effect";
 import { FileSystem } from "@effect/platform";
-import { BunContext } from "@effect/platform-bun";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import {
   AgentRunner,
   AgentRunnerEcho,
@@ -41,7 +41,7 @@ afterAll(async () => {
   await Effect.runPromise(
     Effect.flatMap(FileSystem.FileSystem, (fs) =>
       fs.remove(tmpDir, { recursive: true }).pipe(Effect.catchAll(() => Effect.void)),
-    ).pipe(Effect.provide(BunContext.layer)),
+    ).pipe(Effect.provide(NodeContext.layer)),
   );
 });
 
@@ -53,7 +53,7 @@ const runWithScript = (
   script: AgentRunnerEchoScript,
   opts: AgentRunOptions,
 ) => {
-  const layer = Layer.merge(AgentRunnerEcho(script), BunContext.layer);
+  const layer = Layer.merge(AgentRunnerEcho(script), NodeContext.layer);
   return Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     yield* fs.makeDirectory(tmpDir, { recursive: true });

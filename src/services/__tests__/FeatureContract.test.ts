@@ -1,7 +1,7 @@
 import { describe, test, expect, afterAll } from "bun:test";
 import { Effect, Exit, Layer, Option, Schema } from "effect";
 import { FileSystem } from "@effect/platform";
-import { BunContext } from "@effect/platform-bun";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import {
   FeatureContract,
   FeatureContractLive,
@@ -13,12 +13,12 @@ import {
 import { brand } from "../brand";
 
 // ---------------------------------------------------------------------------
-// Layer: FeatureContract + FileSystem (via BunContext), no residual R
+// Layer: FeatureContract + FileSystem (via NodeContext), no residual R
 // ---------------------------------------------------------------------------
 
 const testLayer = Layer.merge(
-  FeatureContractLive.pipe(Layer.provide(BunContext.layer)),
-  BunContext.layer,
+  FeatureContractLive.pipe(Layer.provide(NodeContext.layer)),
+  NodeContext.layer,
 );
 
 // ---------------------------------------------------------------------------
@@ -34,7 +34,7 @@ afterAll(async () => {
     Effect.flatMap(FileSystem.FileSystem, (fs) =>
       fs.remove(tmpDir, { recursive: true }),
     ).pipe(
-      Effect.provide(BunContext.layer),
+      Effect.provide(NodeContext.layer),
       Effect.catchAll(() => Effect.void),
     ),
   );
@@ -130,7 +130,7 @@ describe("FeatureContract", () => {
             yield* ensureTmpDir(fs);
             yield* fs.writeFileString(p, "{not json");
           }),
-        ).pipe(Effect.provide(BunContext.layer)),
+        ).pipe(Effect.provide(NodeContext.layer)),
       );
 
       const exit = await Effect.runPromiseExit(
@@ -161,7 +161,7 @@ describe("FeatureContract", () => {
             yield* ensureTmpDir(fs);
             yield* fs.writeFileString(p, JSON.stringify(noStories));
           }),
-        ).pipe(Effect.provide(BunContext.layer)),
+        ).pipe(Effect.provide(NodeContext.layer)),
       );
 
       const exit = await Effect.runPromiseExit(
@@ -227,7 +227,7 @@ describe("FeatureContract", () => {
             yield* ensureTmpDir(fs);
             yield* fs.writeFileString(p, JSON.stringify(cycleContract));
           }),
-        ).pipe(Effect.provide(BunContext.layer)),
+        ).pipe(Effect.provide(NodeContext.layer)),
       );
 
       const exit = await Effect.runPromiseExit(
@@ -464,7 +464,7 @@ describe("FeatureContract", () => {
             yield* ensureTmpDir(fs);
             yield* fs.writeFileString(p, JSON.stringify(contract));
           }),
-        ).pipe(Effect.provide(BunContext.layer)),
+        ).pipe(Effect.provide(NodeContext.layer)),
       );
 
       const feature = await Effect.runPromise(
@@ -511,7 +511,7 @@ describe("FeatureContract", () => {
             yield* ensureTmpDir(fs);
             yield* fs.writeFileString(p, JSON.stringify(contract));
           }),
-        ).pipe(Effect.provide(BunContext.layer)),
+        ).pipe(Effect.provide(NodeContext.layer)),
       );
 
       const exit = await Effect.runPromiseExit(
@@ -551,7 +551,7 @@ describe("FeatureContract", () => {
             yield* ensureTmpDir(fs);
             yield* fs.writeFileString(p, JSON.stringify(contract));
           }),
-        ).pipe(Effect.provide(BunContext.layer)),
+        ).pipe(Effect.provide(NodeContext.layer)),
       );
 
       const exit = await Effect.runPromiseExit(
@@ -584,7 +584,7 @@ describe("FeatureContract", () => {
             yield* ensureTmpDir(fs);
             yield* fs.writeFileString(p, JSON.stringify(contract));
           }),
-        ).pipe(Effect.provide(BunContext.layer)),
+        ).pipe(Effect.provide(NodeContext.layer)),
       );
 
       const exit = await Effect.runPromiseExit(
@@ -624,7 +624,7 @@ describe("FeatureContract", () => {
             yield* ensureTmpDir(fs);
             yield* fs.writeFileString(p, JSON.stringify(contract));
           }),
-        ).pipe(Effect.provide(BunContext.layer)),
+        ).pipe(Effect.provide(NodeContext.layer)),
       );
 
       const feature = await Effect.runPromise(
@@ -654,7 +654,7 @@ describe("FeatureContract", () => {
             yield* ensureTmpDir(fs);
             yield* fs.writeFileString(p, JSON.stringify(contract));
           }),
-        ).pipe(Effect.provide(BunContext.layer)),
+        ).pipe(Effect.provide(NodeContext.layer)),
       );
 
       const feature = await Effect.runPromise(
@@ -714,7 +714,7 @@ describe("FeatureContract", () => {
             yield* ensureTmpDir(fs);
             yield* fs.writeFileString(p, JSON.stringify(contract));
           }),
-        ).pipe(Effect.provide(BunContext.layer)),
+        ).pipe(Effect.provide(NodeContext.layer)),
       );
 
       const feature = await Effect.runPromise(

@@ -1,7 +1,7 @@
 import { describe, test, expect, afterAll } from "bun:test";
 import { Effect, Layer, Option } from "effect";
 import { FileSystem } from "@effect/platform";
-import { BunContext } from "@effect/platform-bun";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import * as nodePath from "node:path";
 import * as os from "node:os";
 import { AgentRunnerEcho, type AgentRunnerEchoScript } from "../../AgentRunner";
@@ -63,7 +63,7 @@ const tmpRoot = brand<"AbsolutePath">(
 // Full-stack layer: no RunTaskFake — exercises the real RunTaskLive pipeline.
 // ContextEngineLive reads templates from .tap/prompts/ at layer construction time
 // (Layer.effect); FeatureContractLive captures FileSystem at construction too.
-// Both requirements are satisfied by BunContext.layer via Layer.provideMerge.
+// Both requirements are satisfied by NodeContext.layer via Layer.provideMerge.
 // ---------------------------------------------------------------------------
 
 const smokeLayer = Layer.mergeAll(
@@ -73,7 +73,7 @@ const smokeLayer = Layer.mergeAll(
   ContextEngineLive,
   EvalParserLive,
   AgentRunnerEcho(script),
-).pipe(Layer.provideMerge(BunContext.layer));
+).pipe(Layer.provideMerge(NodeContext.layer));
 
 // ---------------------------------------------------------------------------
 // Fixture builders
@@ -114,7 +114,7 @@ afterAll(async () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       yield* fs.remove(tmpRoot, { recursive: true }).pipe(Effect.catchAll(() => Effect.void));
-    }).pipe(Effect.provide(BunContext.layer)),
+    }).pipe(Effect.provide(NodeContext.layer)),
   );
 });
 
@@ -149,7 +149,7 @@ describe("LoopRunner smoke test (end-to-end)", () => {
             specsPath,
             "# Smoke test SPECS\nMinimal specs file for LoopRunner smoke test.\n",
           );
-        }).pipe(Effect.provide(BunContext.layer)),
+        }).pipe(Effect.provide(NodeContext.layer)),
       );
 
       // Run the full loop via the real service stack.
@@ -173,7 +173,7 @@ describe("LoopRunner smoke test (end-to-end)", () => {
           const fs = yield* FileSystem.FileSystem;
           const raw = yield* fs.readFileString(contractPath);
           return JSON.parse(raw) as Feature;
-        }).pipe(Effect.provide(BunContext.layer)),
+        }).pipe(Effect.provide(NodeContext.layer)),
       );
 
       const onDiskT1 = onDisk.stories[0]!.tasks.find((t) => t.id === "T1");
@@ -211,7 +211,7 @@ describe("LoopRunner smoke test (end-to-end)", () => {
             expect(composerExists).toBe(true);
             expect(reviewerExists).toBe(true);
           }
-        }).pipe(Effect.provide(BunContext.layer)),
+        }).pipe(Effect.provide(NodeContext.layer)),
       );
     },
     // Generous timeout — real filesystem + layer construction via ContextEngineLive

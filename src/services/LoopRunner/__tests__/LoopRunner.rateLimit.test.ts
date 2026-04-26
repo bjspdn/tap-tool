@@ -1,7 +1,7 @@
 import { describe, test, expect, afterAll } from "bun:test";
 import { Effect, Layer } from "effect";
 import { FileSystem } from "@effect/platform";
-import { BunContext } from "@effect/platform-bun";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import * as nodePath from "node:path";
 import * as os from "node:os";
 import * as crypto from "node:crypto";
@@ -106,7 +106,7 @@ const makeTestLayer = (runTaskLayer: Layer.Layer<RunTask, never, never>) =>
     AgentRunnerDead,
     ContextEngineDead,
     EvalParserDead,
-  ).pipe(Layer.provideMerge(BunContext.layer));
+  ).pipe(Layer.provideMerge(NodeContext.layer));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -118,14 +118,14 @@ const saveContract = (path: AbsolutePath, feature: Feature) =>
     const dir = brand<"AbsolutePath">(nodePath.dirname(path));
     yield* fs.makeDirectory(dir, { recursive: true });
     yield* fs.writeFileString(path, JSON.stringify(feature, null, 2) + "\n");
-  }).pipe(Effect.provide(BunContext.layer));
+  }).pipe(Effect.provide(NodeContext.layer));
 
 const readContract = (path: AbsolutePath) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const raw = yield* fs.readFileString(path);
     return JSON.parse(raw) as Feature;
-  }).pipe(Effect.provide(BunContext.layer));
+  }).pipe(Effect.provide(NodeContext.layer));
 
 const runLoop = (
   contractPath: AbsolutePath,
@@ -149,7 +149,7 @@ afterAll(async () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       yield* fs.remove(tmpRoot, { recursive: true }).pipe(Effect.catchAll(() => Effect.void));
-    }).pipe(Effect.provide(BunContext.layer)),
+    }).pipe(Effect.provide(NodeContext.layer)),
   );
 });
 

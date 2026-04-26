@@ -2,7 +2,7 @@ import { describe, test, expect, afterAll } from "bun:test";
 import * as path from "node:path";
 import { Effect, Exit, Layer, Option } from "effect";
 import { FileSystem } from "@effect/platform";
-import { BunContext } from "@effect/platform-bun";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import { AgentRunnerEcho, type AgentRunnerEchoScript } from "../AgentRunner";
 import { ContextEngineLive } from "../ContextEngine";
 import { EvalParserLive } from "../EvalParser";
@@ -117,7 +117,7 @@ const makeTestLayer = (script: AgentRunnerEchoScript) =>
     ContextEngineLive,
     EvalParserLive,
     AgentRunnerEcho(script),
-  ).pipe(Layer.provideMerge(BunContext.layer));
+  ).pipe(Layer.provideMerge(NodeContext.layer));
 
 // ---------------------------------------------------------------------------
 // afterAll cleanup
@@ -127,7 +127,7 @@ afterAll(async () => {
   await Effect.runPromise(
     Effect.flatMap(FileSystem.FileSystem, (fs) =>
       fs.remove(TMP_ROOT, { recursive: true, force: true }),
-    ).pipe(Effect.provide(BunContext.layer)),
+    ).pipe(Effect.provide(NodeContext.layer)),
   );
 });
 
@@ -182,7 +182,7 @@ describe("RunTask", () => {
         const reviewerExists = yield* fs.exists(result.reviewerLogPath);
         const evalExists = yield* fs.exists(result.evalResultPath);
         return [composerExists, reviewerExists, evalExists] as const;
-      }).pipe(Effect.provide(BunContext.layer)),
+      }).pipe(Effect.provide(NodeContext.layer)),
     );
 
     expect(composerExists).toBe(true);
@@ -289,7 +289,7 @@ describe("RunTask", () => {
     const reviewerExists = await Effect.runPromise(
       Effect.flatMap(FileSystem.FileSystem, (fs) =>
         fs.exists(reviewerLogPath),
-      ).pipe(Effect.provide(BunContext.layer)),
+      ).pipe(Effect.provide(NodeContext.layer)),
     );
     expect(reviewerExists).toBe(false);
   });

@@ -1,7 +1,7 @@
 import { describe, test, expect, afterAll } from "bun:test";
 import { Effect, Layer } from "effect";
 import { FileSystem } from "@effect/platform";
-import { BunContext } from "@effect/platform-bun";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import * as nodePath from "node:path";
 import * as os from "node:os";
 import { AgentRunner } from "../../AgentRunner";
@@ -142,7 +142,7 @@ const tmpRoot = brand<"AbsolutePath">(
 );
 
 // ---------------------------------------------------------------------------
-// Layer factory — BunContext.layer + FeatureContractLive + RunTaskFake + LoopRunnerLive
+// Layer factory — NodeContext.layer + FeatureContractLive + RunTaskFake + LoopRunnerLive
 // (plus dead fakes to satisfy LoopRunner.run's declared R channel types)
 // ---------------------------------------------------------------------------
 
@@ -154,7 +154,7 @@ const makeTestLayer = (outcomes: ReadonlyArray<TaskResult | RunTaskError>) =>
     AgentRunnerDead,
     ContextEngineDead,
     EvalParserDead,
-  ).pipe(Layer.provideMerge(BunContext.layer));
+  ).pipe(Layer.provideMerge(NodeContext.layer));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -167,7 +167,7 @@ const saveContract = (path: AbsolutePath, feature: Feature) =>
     const dir = brand<"AbsolutePath">(nodePath.dirname(path));
     yield* fs.makeDirectory(dir, { recursive: true });
     yield* fs.writeFileString(path, JSON.stringify(feature, null, 2) + "\n");
-  }).pipe(Effect.provide(BunContext.layer));
+  }).pipe(Effect.provide(NodeContext.layer));
 
 /** Run LoopRunner.run with the given contract + outcomes. */
 const runLoop = (
@@ -187,7 +187,7 @@ afterAll(async () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       yield* fs.remove(tmpRoot, { recursive: true }).pipe(Effect.catchAll(() => Effect.void));
-    }).pipe(Effect.provide(BunContext.layer)),
+    }).pipe(Effect.provide(NodeContext.layer)),
   );
 });
 
@@ -296,7 +296,7 @@ describe("LoopRunner scheduling", () => {
         const fs = yield* FileSystem.FileSystem;
         yield* fs.makeDirectory(evalDir, { recursive: true });
         yield* fs.writeFileString(evalResultPath, "# placeholder eval for retry archiving\n");
-      }).pipe(Effect.provide(BunContext.layer)),
+      }).pipe(Effect.provide(NodeContext.layer)),
     );
 
     // Exactly MAX_ITERATIONS FAIL outcomes — the loop runs MAX_ITERATIONS times before the

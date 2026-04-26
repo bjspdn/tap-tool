@@ -1,7 +1,7 @@
 import { describe, test, expect, afterAll } from "bun:test";
 import { Effect, Either, Layer, Option, Ref } from "effect";
 import { FileSystem } from "@effect/platform";
-import { BunContext } from "@effect/platform-bun";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import * as nodePath from "node:path";
 import * as os from "node:os";
 import { AgentRunner } from "../../AgentRunner";
@@ -25,7 +25,7 @@ afterAll(async () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       yield* fs.remove(tmpRoot, { recursive: true }).pipe(Effect.catchAll(() => Effect.void));
-    }).pipe(Effect.provide(BunContext.layer)),
+    }).pipe(Effect.provide(NodeContext.layer)),
   );
 });
 
@@ -180,7 +180,7 @@ const saveContract = (path: AbsolutePath, feature: Feature) =>
     const dir = brand<"AbsolutePath">(nodePath.dirname(path));
     yield* fs.makeDirectory(dir, { recursive: true });
     yield* fs.writeFileString(path, JSON.stringify(feature, null, 2) + "\n");
-  }).pipe(Effect.provide(BunContext.layer));
+  }).pipe(Effect.provide(NodeContext.layer));
 
 /**
  * Build an initial DashboardState that mirrors the given Feature so the Ref
@@ -232,7 +232,7 @@ const makeTestLayer = (runTaskLayer: Layer.Layer<RunTask, never, never>) =>
     AgentRunnerDead,
     ContextEngineDead,
     EvalParserDead,
-  ).pipe(Layer.provideMerge(BunContext.layer));
+  ).pipe(Layer.provideMerge(NodeContext.layer));
 
 const runLoopWithRef = (
   contractPath: AbsolutePath,
@@ -261,7 +261,7 @@ describe("LoopRunner Ref<DashboardState> integration", () => {
     await Effect.runPromise(saveContract(contractPath, feature));
 
     const ref = await Effect.runPromise(
-      Ref.make(makeDashboardState(feature)).pipe(Effect.provide(BunContext.layer)),
+      Ref.make(makeDashboardState(feature)).pipe(Effect.provide(NodeContext.layer)),
     );
 
     const summary = await Effect.runPromise(
@@ -272,7 +272,7 @@ describe("LoopRunner Ref<DashboardState> integration", () => {
     expect(summary.completed).toBe(true);
 
     const dashState = await Effect.runPromise(
-      Ref.get(ref).pipe(Effect.provide(BunContext.layer)),
+      Ref.get(ref).pipe(Effect.provide(NodeContext.layer)),
     );
 
     // stoppedReason in Ref must be Some(AllDone)
@@ -313,7 +313,7 @@ describe("LoopRunner Ref<DashboardState> integration", () => {
     await Effect.runPromise(saveContract(contractPath, feature));
 
     const ref = await Effect.runPromise(
-      Ref.make(makeDashboardState(feature)).pipe(Effect.provide(BunContext.layer)),
+      Ref.make(makeDashboardState(feature)).pipe(Effect.provide(NodeContext.layer)),
     );
 
     const summary = await Effect.runPromise(
@@ -324,7 +324,7 @@ describe("LoopRunner Ref<DashboardState> integration", () => {
     expect(summary.completed).toBe(false);
 
     const dashState = await Effect.runPromise(
-      Ref.get(ref).pipe(Effect.provide(BunContext.layer)),
+      Ref.get(ref).pipe(Effect.provide(NodeContext.layer)),
     );
 
     // stoppedReason in Ref must be Some(TaskExhausted)
@@ -360,7 +360,7 @@ describe("LoopRunner Ref<DashboardState> integration", () => {
     await Effect.runPromise(saveContract(contractPath, feature));
 
     const ref = await Effect.runPromise(
-      Ref.make(makeDashboardState(feature)).pipe(Effect.provide(BunContext.layer)),
+      Ref.make(makeDashboardState(feature)).pipe(Effect.provide(NodeContext.layer)),
     );
 
     const { layer, captured } = makeRunTaskWithRefCapture(ref, [makePassResult("T1")]);
@@ -397,7 +397,7 @@ describe("LoopRunner Ref<DashboardState> integration", () => {
     await Effect.runPromise(saveContract(contractPath, feature));
 
     const ref = await Effect.runPromise(
-      Ref.make(makeDashboardState(feature)).pipe(Effect.provide(BunContext.layer)),
+      Ref.make(makeDashboardState(feature)).pipe(Effect.provide(NodeContext.layer)),
     );
 
     const { layer, captured } = makeRunTaskWithRefCapture(ref, [
@@ -570,7 +570,7 @@ const makeTestLayerLive = (
     agentRunnerLayer,
     ContextEngineFake,
     evalParserLayer,
-  ).pipe(Layer.provideMerge(BunContext.layer));
+  ).pipe(Layer.provideMerge(NodeContext.layer));
 
 const runLoopLive = (
   contractPath: AbsolutePath,
@@ -596,7 +596,7 @@ describe("LoopRunner phase→Reviewer and token accumulation (RunTaskLive path)"
     await Effect.runPromise(saveContract(contractPath, feature));
 
     const ref = await Effect.runPromise(
-      Ref.make(makeDashboardState(feature)).pipe(Effect.provide(BunContext.layer)),
+      Ref.make(makeDashboardState(feature)).pipe(Effect.provide(NodeContext.layer)),
     );
 
     const reviewerCaptures: DashboardState[] = [];
@@ -634,7 +634,7 @@ describe("LoopRunner phase→Reviewer and token accumulation (RunTaskLive path)"
     await Effect.runPromise(saveContract(contractPath, feature));
 
     const ref = await Effect.runPromise(
-      Ref.make(makeDashboardState(feature)).pipe(Effect.provide(BunContext.layer)),
+      Ref.make(makeDashboardState(feature)).pipe(Effect.provide(NodeContext.layer)),
     );
 
     // 100 tokens per role × 2 roles = 200 tokens; 0.01 cost per role × 2 = 0.02
@@ -647,7 +647,7 @@ describe("LoopRunner phase→Reviewer and token accumulation (RunTaskLive path)"
     expect(summary.stoppedReason._tag).toBe("AllDone");
 
     const dashState = await Effect.runPromise(
-      Ref.get(ref).pipe(Effect.provide(BunContext.layer)),
+      Ref.get(ref).pipe(Effect.provide(NodeContext.layer)),
     );
 
     // Task T1 should have non-zero tokensUsed (Composer + Reviewer contributions)

@@ -1,7 +1,7 @@
 import { describe, test, expect, afterAll } from "bun:test";
 import { Effect, Exit, Layer, Schema } from "effect";
 import { FileSystem } from "@effect/platform";
-import { BunContext } from "@effect/platform-bun";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import {
   AgentRunner,
   AgentRunnerEcho,
@@ -241,7 +241,7 @@ describe("AgentRunner", () => {
       await Effect.runPromise(
         Effect.flatMap(FileSystem.FileSystem, (fs) =>
           fs.remove(tmpDir, { recursive: true }),
-        ).pipe(Effect.provide(BunContext.layer)),
+        ).pipe(Effect.provide(NodeContext.layer)),
       );
     });
 
@@ -275,7 +275,7 @@ describe("AgentRunner", () => {
         evalPath,
       });
 
-      const layer = Layer.merge(AgentRunnerEcho(script), BunContext.layer);
+      const layer = Layer.merge(AgentRunnerEcho(script), NodeContext.layer);
 
       const program = Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -304,12 +304,12 @@ describe("AgentRunner", () => {
       // Composer log exists, is non-empty, and lines parse as AgentEvents
       const fs = await Effect.runPromise(
         Effect.flatMap(FileSystem.FileSystem, (fs) => Effect.succeed(fs)).pipe(
-          Effect.provide(BunContext.layer),
+          Effect.provide(NodeContext.layer),
         ),
       );
 
       const composerLogContent = await Effect.runPromise(
-        fs.readFileString(composerLog).pipe(Effect.provide(BunContext.layer)),
+        fs.readFileString(composerLog).pipe(Effect.provide(NodeContext.layer)),
       );
       expect(composerLogContent.length).toBeGreaterThan(0);
       const composerLines = composerLogContent
@@ -324,7 +324,7 @@ describe("AgentRunner", () => {
 
       // Reviewer log exists similarly
       const reviewerLogContent = await Effect.runPromise(
-        fs.readFileString(reviewerLog).pipe(Effect.provide(BunContext.layer)),
+        fs.readFileString(reviewerLog).pipe(Effect.provide(NodeContext.layer)),
       );
       expect(reviewerLogContent.length).toBeGreaterThan(0);
       const reviewerLines = reviewerLogContent
@@ -335,7 +335,7 @@ describe("AgentRunner", () => {
 
       // Eval file exists with canned content verbatim
       const evalContent = await Effect.runPromise(
-        fs.readFileString(evalPath).pipe(Effect.provide(BunContext.layer)),
+        fs.readFileString(evalPath).pipe(Effect.provide(NodeContext.layer)),
       );
       expect(evalContent).toBe(EVAL_CONTENT);
     });
@@ -361,7 +361,7 @@ describe("AgentRunner", () => {
         stderrLogPath: brand<"AbsolutePath">(`${tmpDir2}/composer.stderr.log`),
       });
 
-      const layer = Layer.merge(AgentRunnerEcho(maxTurnsScript), BunContext.layer);
+      const layer = Layer.merge(AgentRunnerEcho(maxTurnsScript), NodeContext.layer);
 
       const program = Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -387,7 +387,7 @@ describe("AgentRunner", () => {
       await Effect.runPromise(
         Effect.flatMap(FileSystem.FileSystem, (fs) =>
           fs.remove(tmpDir2, { recursive: true }),
-        ).pipe(Effect.provide(BunContext.layer)),
+        ).pipe(Effect.provide(NodeContext.layer)),
       );
     });
 
@@ -402,7 +402,7 @@ describe("AgentRunner", () => {
         evalPath: brand<"AbsolutePath">(`${tmpDir3}/EVAL_RESULT.md`),
       });
 
-      const layer = Layer.merge(AgentRunnerEcho(maxTurnsScript), BunContext.layer);
+      const layer = Layer.merge(AgentRunnerEcho(maxTurnsScript), NodeContext.layer);
 
       const program = Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -428,7 +428,7 @@ describe("AgentRunner", () => {
       await Effect.runPromise(
         Effect.flatMap(FileSystem.FileSystem, (fs) =>
           fs.remove(tmpDir3, { recursive: true }),
-        ).pipe(Effect.provide(BunContext.layer)),
+        ).pipe(Effect.provide(NodeContext.layer)),
       );
     });
   });

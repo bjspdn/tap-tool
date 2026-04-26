@@ -1,6 +1,6 @@
 import { describe, test, expect, afterAll } from "bun:test";
 import { Effect } from "effect";
-import { BunContext } from "@effect/platform-bun";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import { FileSystem } from "@effect/platform";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -26,7 +26,7 @@ afterAll(async () => {
       yield* fs.remove(tmpDir as string, { recursive: true }).pipe(
         Effect.catchAll(() => Effect.void),
       );
-    }).pipe(Effect.provide(BunContext.layer)),
+    }).pipe(Effect.provide(NodeContext.layer)),
   );
 });
 
@@ -37,7 +37,7 @@ afterAll(async () => {
 describe("captureGitStatus", () => {
   test("returns a string for a valid git repo", async () => {
     const result = await Effect.runPromise(
-      captureGitStatus(repoRoot).pipe(Effect.provide(BunContext.layer)),
+      captureGitStatus(repoRoot).pipe(Effect.provide(NodeContext.layer)),
     );
     expect(typeof result).toBe("string");
   });
@@ -48,11 +48,11 @@ describe("captureGitStatus", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         yield* fs.makeDirectory(tmpDir as string, { recursive: true });
-      }).pipe(Effect.provide(BunContext.layer)),
+      }).pipe(Effect.provide(NodeContext.layer)),
     );
 
     const result = await Effect.runPromise(
-      captureGitStatus(tmpDir).pipe(Effect.provide(BunContext.layer)),
+      captureGitStatus(tmpDir).pipe(Effect.provide(NodeContext.layer)),
     );
     expect(result).toBe("");
   });

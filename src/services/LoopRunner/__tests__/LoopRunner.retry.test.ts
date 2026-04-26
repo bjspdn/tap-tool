@@ -1,7 +1,7 @@
 import { describe, test, expect, afterAll, spyOn } from "bun:test";
 import { Effect, Layer, Option } from "effect";
 import { FileSystem } from "@effect/platform";
-import { BunContext } from "@effect/platform-bun";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import * as nodePath from "node:path";
 import * as os from "node:os";
 import { AgentRunner } from "../../AgentRunner";
@@ -168,7 +168,7 @@ const makeTestLayer = (fake: { layer: Layer.Layer<RunTask, never, never> }) =>
     AgentRunnerDead,
     ContextEngineDead,
     EvalParserDead,
-  ).pipe(Layer.provideMerge(BunContext.layer));
+  ).pipe(Layer.provideMerge(NodeContext.layer));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -180,7 +180,7 @@ const saveContract = (path: AbsolutePath, feature: Feature) =>
     const dir = brand<"AbsolutePath">(nodePath.dirname(path));
     yield* fs.makeDirectory(dir, { recursive: true });
     yield* fs.writeFileString(path, JSON.stringify(feature, null, 2) + "\n");
-  }).pipe(Effect.provide(BunContext.layer));
+  }).pipe(Effect.provide(NodeContext.layer));
 
 const seedEvalResult = (evalDir: AbsolutePath, content: string) =>
   Effect.gen(function* () {
@@ -188,7 +188,7 @@ const seedEvalResult = (evalDir: AbsolutePath, content: string) =>
     yield* fs.makeDirectory(evalDir, { recursive: true });
     const evalResultPath = brand<"AbsolutePath">(nodePath.join(evalDir as string, "EVAL_RESULT.md"));
     yield* fs.writeFileString(evalResultPath, content);
-  }).pipe(Effect.provide(BunContext.layer));
+  }).pipe(Effect.provide(NodeContext.layer));
 
 const runLoop = (
   contractPath: AbsolutePath,
@@ -210,7 +210,7 @@ afterAll(async () => {
       yield* fs
         .remove(nonRepoTmpRoot, { recursive: true })
         .pipe(Effect.catchAll(() => Effect.void));
-    }).pipe(Effect.provide(BunContext.layer)),
+    }).pipe(Effect.provide(NodeContext.layer)),
   );
 });
 
@@ -250,7 +250,7 @@ describe("LoopRunner retry-state", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         return yield* fs.readFileString(expectedArchivePath);
-      }).pipe(Effect.provide(BunContext.layer)),
+      }).pipe(Effect.provide(NodeContext.layer)),
     );
     expect(archivedContent).toBe(evalContent);
 
@@ -271,7 +271,7 @@ describe("LoopRunner retry-state", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         return yield* fs.readFileString(evalResultPath);
-      }).pipe(Effect.provide(BunContext.layer)),
+      }).pipe(Effect.provide(NodeContext.layer)),
     );
     expect(currentEval).toBe(evalContent);
   });
@@ -311,7 +311,7 @@ describe("LoopRunner retry-state", () => {
         const fs = yield* FileSystem.FileSystem;
         const raw = yield* fs.readFileString(contractPath);
         return JSON.parse(raw) as Feature;
-      }).pipe(Effect.provide(BunContext.layer)),
+      }).pipe(Effect.provide(NodeContext.layer)),
     );
     const onDiskTask = onDisk.stories[0]!.tasks.find((t) => t.id === "T1");
     expect(onDiskTask).toBeDefined();

@@ -186,7 +186,7 @@ const dispatchTerminalSummary = (
  * FeatureContract, RunTask, FileSystem, and CommandExecutor are NOT captured at
  * layer-construction time — they are acquired via `yield*` inside the `run`
  * Effect.gen body. This mirrors the AgentRunnerEcho pattern so that
- * LoopRunnerLive composes with BunContext.layer + other Live layers without
+ * LoopRunnerLive composes with NodeContext.layer + other Live layers without
  * leaving residual R on the layer itself.
  */
 export const LoopRunnerLive: Layer.Layer<LoopRunner, never, never> = Layer.succeed(

@@ -1,6 +1,6 @@
 import { describe, test, expect, afterAll } from "bun:test";
 import { Effect } from "effect";
-import { BunContext } from "@effect/platform-bun";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import { FileSystem } from "@effect/platform";
 import * as nodePath from "node:path";
 import { brand } from "../../brand";
@@ -24,7 +24,7 @@ afterAll(async () => {
       yield* fs.remove(tmpDir, { recursive: true }).pipe(
         Effect.catchAll(() => Effect.void),
       );
-    }).pipe(Effect.provide(BunContext.layer)),
+    }).pipe(Effect.provide(NodeContext.layer)),
   );
 });
 
@@ -50,7 +50,7 @@ describe("archivePriorEval", () => {
         expect(exists).toBe(true);
         const actual = yield* fs.readFileString(destPath);
         expect(actual).toBe(content);
-      }).pipe(Effect.provide(BunContext.layer)),
+      }).pipe(Effect.provide(NodeContext.layer)),
     );
   });
 
@@ -65,7 +65,7 @@ describe("archivePriorEval", () => {
     const error = await Effect.runPromise(
       archivePriorEval(sourcePath, destPath).pipe(
         Effect.flip,
-        Effect.provide(BunContext.layer),
+        Effect.provide(NodeContext.layer),
       ),
     );
 
@@ -94,7 +94,7 @@ describe("archivePriorEval", () => {
         yield* archivePriorEval(sourcePath, destPath);
         const actual = yield* fs.readFileString(destPath);
         expect(actual).toBe(secondContent);
-      }).pipe(Effect.provide(BunContext.layer)),
+      }).pipe(Effect.provide(NodeContext.layer)),
     );
   });
 });

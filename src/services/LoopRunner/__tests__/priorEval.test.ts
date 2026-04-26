@@ -1,6 +1,6 @@
 import { describe, test, expect, afterAll } from "bun:test";
 import { Effect, Option } from "effect";
-import { BunContext } from "@effect/platform-bun";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import { FileSystem } from "@effect/platform";
 import * as nodePath from "node:path";
 import * as os from "node:os";
@@ -24,7 +24,7 @@ afterAll(async () => {
       yield* fs.remove(tmpRoot, { recursive: true }).pipe(
         Effect.catchAll(() => Effect.void),
       );
-    }).pipe(Effect.provide(BunContext.layer)),
+    }).pipe(Effect.provide(NodeContext.layer)),
   );
 });
 
@@ -46,7 +46,7 @@ describe("resolvePriorEvalPath", () => {
 
     const result = await Effect.runPromise(
       resolvePriorEvalPath(featureRoot, taskId, 1).pipe(
-        Effect.provide(BunContext.layer),
+        Effect.provide(NodeContext.layer),
       ),
     );
 
@@ -57,7 +57,7 @@ describe("resolvePriorEvalPath", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         return yield* fs.exists(nodePath.join(featureRoot as string, "eval", "archive"));
-      }).pipe(Effect.provide(BunContext.layer)),
+      }).pipe(Effect.provide(NodeContext.layer)),
     );
     expect(archiveExists).toBe(false);
   });
@@ -70,12 +70,12 @@ describe("resolvePriorEvalPath", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         yield* fs.makeDirectory(featureRoot, { recursive: true });
-      }).pipe(Effect.provide(BunContext.layer)),
+      }).pipe(Effect.provide(NodeContext.layer)),
     );
 
     const result = await Effect.runPromise(
       resolvePriorEvalPath(featureRoot, taskId, 2).pipe(
-        Effect.provide(BunContext.layer),
+        Effect.provide(NodeContext.layer),
       ),
     );
 
@@ -85,7 +85,7 @@ describe("resolvePriorEvalPath", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         return yield* fs.exists(nodePath.join(featureRoot as string, "eval", "archive"));
-      }).pipe(Effect.provide(BunContext.layer)),
+      }).pipe(Effect.provide(NodeContext.layer)),
     );
     expect(archiveExists).toBe(false);
   });
@@ -104,12 +104,12 @@ describe("resolvePriorEvalPath", () => {
         const fs = yield* FileSystem.FileSystem;
         yield* fs.makeDirectory(evalDir, { recursive: true });
         yield* fs.writeFileString(evalResultPath, content);
-      }).pipe(Effect.provide(BunContext.layer)),
+      }).pipe(Effect.provide(NodeContext.layer)),
     );
 
     const result = await Effect.runPromise(
       resolvePriorEvalPath(featureRoot, taskId, 2).pipe(
-        Effect.provide(BunContext.layer),
+        Effect.provide(NodeContext.layer),
       ),
     );
 
@@ -127,7 +127,7 @@ describe("resolvePriorEvalPath", () => {
         // Original EVAL_RESULT.md still exists (copy, not move)
         const originalContent = yield* fs.readFileString(evalResultPath);
         expect(originalContent).toBe(content);
-      }).pipe(Effect.provide(BunContext.layer)),
+      }).pipe(Effect.provide(NodeContext.layer)),
     );
   });
 
@@ -145,12 +145,12 @@ describe("resolvePriorEvalPath", () => {
         const fs = yield* FileSystem.FileSystem;
         yield* fs.makeDirectory(evalDir, { recursive: true });
         yield* fs.writeFileString(evalResultPath, content);
-      }).pipe(Effect.provide(BunContext.layer)),
+      }).pipe(Effect.provide(NodeContext.layer)),
     );
 
     const result = await Effect.runPromise(
       resolvePriorEvalPath(featureRoot, taskId, 5).pipe(
-        Effect.provide(BunContext.layer),
+        Effect.provide(NodeContext.layer),
       ),
     );
 
@@ -171,19 +171,19 @@ describe("resolvePriorEvalPath", () => {
         const fs = yield* FileSystem.FileSystem;
         yield* fs.makeDirectory(evalDir, { recursive: true });
         yield* fs.writeFileString(evalResultPath, content);
-      }).pipe(Effect.provide(BunContext.layer)),
+      }).pipe(Effect.provide(NodeContext.layer)),
     );
 
     const resultA = await Effect.runPromise(
       resolvePriorEvalPath(featureRoot, taskIdA, 2).pipe(
-        Effect.provide(BunContext.layer),
+        Effect.provide(NodeContext.layer),
       ),
     );
 
     // Re-write EVAL_RESULT.md (it still exists after the copy) for the second call
     const resultB = await Effect.runPromise(
       resolvePriorEvalPath(featureRoot, taskIdB, 2).pipe(
-        Effect.provide(BunContext.layer),
+        Effect.provide(NodeContext.layer),
       ),
     );
 
@@ -204,7 +204,7 @@ describe("resolvePriorEvalPath", () => {
         const existsB = yield* fs.exists(pathB);
         expect(existsA).toBe(true);
         expect(existsB).toBe(true);
-      }).pipe(Effect.provide(BunContext.layer)),
+      }).pipe(Effect.provide(NodeContext.layer)),
     );
   });
 });
