@@ -7,34 +7,23 @@ description: Deep-module discipline for the tap-tool Ralph loop. Provides shared
 
 Vocabulary and operational tests for deep-module discipline across the tap-tool Ralph loop. Three roles consume this skill: **probe** (tap-into at plan time), **write** (Composer + Scout at build time), **judge** (Reviewer + Summarizer at review/report time). Use the terms below exactly — consistent language across roles is the point.
 
----
+<vocabulary>
 
-## Vocabulary core
+<vocab_module>**Module** — anything with an interface and an implementation. Scale-agnostic: applies to a function, class, file, package, or tier-spanning slice. Avoid: unit, component, service.</vocab_module>
 
-**Module**
-Anything with an interface and an implementation. Scale-agnostic: applies to a function, class, file, package, or tier-spanning slice.
-_Avoid_: unit, component, service.
+<vocab_interface>**Interface** — everything a caller must know to use the module correctly. Includes type signature, invariants, ordering constraints, error modes, required configuration, and performance characteristics. Avoid: API, signature (those refer only to the type-level surface — too narrow).</vocab_interface>
 
-**Interface**
-Everything a caller must know to use the module correctly. Includes type signature, invariants, ordering constraints, error modes, required configuration, and performance characteristics.
-_Avoid_: API, signature (those refer only to the type-level surface — too narrow).
+<vocab_depth>**Depth (depth-as-leverage)** — the amount of behaviour a caller can exercise per unit of interface they have to learn. A module is **deep** when large behaviour sits behind a small interface. A module is **shallow** when the interface is nearly as complex as the implementation.
 
-**Depth (depth-as-leverage)**
-The amount of behaviour a caller can exercise per unit of interface they have to learn. A module is **deep** when large behaviour sits behind a small interface. A module is **shallow** when the interface is nearly as complex as the implementation.
+> **Explicitly rejected:** Ousterhout's ratio of implementation-lines to interface-lines. That framing rewards padding the implementation. Depth here is leverage at the interface — what callers and tests get per unit of surface they must understand.</vocab_depth>
 
-> **Explicitly rejected:** Ousterhout's ratio of implementation-lines to interface-lines. That framing rewards padding the implementation. Depth here is leverage at the interface — what callers and tests get per unit of surface they must understand.
+<vocab_seam>**Seam** _(Feathers)_ — a place where you can alter behaviour without editing at that place. The location at which a module's interface lives. Choosing seam placement is its own design decision, separate from what goes behind it. Avoid: boundary (overloaded with DDD's bounded context).</vocab_seam>
 
-**Seam** _(Feathers)_
-A place where you can alter behaviour without editing at that place. The location at which a module's interface lives. Choosing seam placement is its own design decision, separate from what goes behind it.
-_Avoid_: boundary (overloaded with DDD's bounded context).
+<vocab_leverage>**Leverage** — what callers get from depth. More capability per unit of interface to learn. One implementation pays back across N call sites and M tests.</vocab_leverage>
 
-**Leverage**
-What callers get from depth. More capability per unit of interface to learn. One implementation pays back across N call sites and M tests.
+<vocab_locality>**Locality** — what maintainers get from depth. Change, bugs, knowledge, and verification concentrate in one place rather than spreading across callers. Fix once, fixed everywhere.</vocab_locality>
 
-**Locality**
-What maintainers get from depth. Change, bugs, knowledge, and verification concentrate in one place rather than spreading across callers. Fix once, fixed everywhere.
-
-### Term relationships
+<term_relationships>Term relationships:
 
 ```
 Module ──has──► Interface ──located at──► Seam
@@ -44,86 +33,62 @@ Module ──has──► Interface ──located at──► Seam
                Leverage (for callers)
                Locality (for maintainers)
 ```
+</term_relationships>
 
----
+</vocabulary>
 
-## Operational tests
-
-### Deletion test
-
-Imagine deleting the module. Ask: does complexity vanish (the module was a pass-through, not earning its keep), or does complexity reappear across N callers (the module was hiding something real)? A module that survives deletion without cascading rewrites is a candidate for removal or merger.
-
-### Entry-point hard cap
-
-**≤3 entry points per module.** Above this cap, split into a new module. This limit is not a style preference — it is enforced in `<feature:depth>` entries and in every Composer diff. An interface with 4+ entry points is a signal that the module mixes concerns.
-
-### Seam taxonomy (four categories)
-
-Classify every seam before deciding whether to introduce it. Category determines how the module behind it is tested.
-
-| Category | Description | Testing approach |
-|---|---|---|
-| **in-process** | Pure computation, in-memory state, no I/O | Test through the interface directly. No adapter needed. |
-| **local-substitutable** | Dependency has a local stand-in (PGLite, in-memory FS) | Test with the stand-in running. Seam is internal; no port at the module's external interface. |
-| **remote-owned** | Your own services across a network (Ports & Adapters) | Define a port at the seam. Deep module owns the logic; transport is injected as an adapter. |
-| **external** | Third-party services you don't control (Stripe, Twilio) | Inject as a port; tests use a mock adapter. |
-
-### One adapter = hypothetical seam, two = real seam
-
-Do not introduce a port (seam) unless at least two adapters are justified — typically production + test. A single-adapter seam is indirection, not depth. Expose a seam only when something actually varies across it.
-
-### Interface is the test surface
-
-Callers and tests cross the same seam. If a test has to reach past the interface into implementation detail, the module is the wrong shape — not the test. Delete old unit tests on shallow modules once tests at the deepened interface exist.
-
----
-
-## Role overlays
-
-### probe — tap-into interview prompts
+<probe_overlay>
 
 Used by the `tap-into` skill during the `<discussion_loop>` depth-discipline angle. For every module the feature will create or significantly modify, drive these probes:
 
-1. **What does it hide?** A deep module has simple interface over substantial hidden complexity. Probe for that ratio. If the answer is "not much", the module may be shallow.
-2. **How many entry points?** Count them. If >3, split now, before the contract is emitted.
-3. **What breaks if you delete it?** If nothing cascades, the module may not be worth its own seam. Ask whether the caller can absorb it.
-4. **Where is the seam?** Classify as in-process / local-substitutable / remote-owned / external. Seam type determines how failures propagate and how the module is tested.
-5. **One adapter or two?** If only one adapter is justified, the seam is hypothetical — reconsider whether to introduce the port at all.
+<probe_what_it_hides>**Always ask "what does this module hide?" before accepting its design**, BECAUSE a deep module has a simple interface over substantial hidden complexity — if the answer is "not much", the module is likely shallow and should be merged into its caller or redesigned before the contract is emitted.</probe_what_it_hides>
 
-Depth answers populate `<feature:depth>` in `SPECS.md`. Every file in `task.files` must map to exactly one `<feature:depth>` module entry before emit.
+<probe_entry_points>**Always count entry points and enforce the ≤3 cap at probe time**, BECAUSE splitting after the contract is emitted forces rework of `task.files`, `SPECS.md`, and the Composer's plan; catching a bloated interface in discussion costs nothing compared to catching it in review.</probe_entry_points>
 
-### write — Composer + Scout
+<probe_deletion_test>**Always ask "what breaks if you delete this module?" before finalizing its seam**, BECAUSE if nothing cascades the module may not be earning its own seam — the caller can absorb it, and the seam adds indirection without depth.</probe_deletion_test>
+
+<probe_seam_classification>**Always classify the seam as in-process / local-substitutable / remote-owned / external before the contract is emitted**, BECAUSE seam type determines how failures propagate and how the module is tested; a misclassified seam leads to wrong test strategies and unexpected integration failures downstream.</probe_seam_classification>
+
+<probe_adapter_count>**Always verify that at least two adapters are justified before introducing a port**, BECAUSE a single-adapter seam is indirection without variance — the port adds cognitive overhead without enabling any substitution that the feature actually requires. If only one adapter is justified, the seam is hypothetical; reconsider introducing the port at all.</probe_adapter_count>
+
+<probe_depth_entries>**Always populate `<spec:depth>` in `SPECS.md` with probe answers before emitting the contract**, BECAUSE every file in `task.files` must map to exactly one `<spec:depth>` module entry; an unmapped file is a contract gap that the Reviewer will treat as a blocker.</probe_depth_entries>
+
+</probe_overlay>
+
+<write_overlay>
 
 Used by the `Composer` agent and its `Explore` Scout subagent before writing any code.
 
-**Scout survey (Explore subagent — ephemeral report, no on-disk artifact):**
-- Map the nearest sibling modules' interfaces: entry points, seam category, what they hide.
-- Identify existing patterns (error handling, naming, type conventions) that the new code must match.
-- Flag any existing module that already provides functionality the task is about to re-implement.
-- Report format: one paragraph per nearby module — name, entry points, seam, what it hides, reuse verdict (yes/no).
+<write_scout_survey>**Always complete a Scout survey (ephemeral report, no on-disk artifact) before writing implementation code**, BECAUSE writing without surveying risks re-implementing functionality already present in sibling modules, or violating naming and error-handling conventions established nearby. The Scout report must cover: entry points, seam category, what each nearby module hides, and a reuse verdict (yes/no) — one paragraph per nearby module.</write_scout_survey>
 
-**Composer obligations after reading Scout report:**
-- Match interface shape (naming, error idioms, type patterns) of the nearest same-module siblings.
-- Respect the `<feature:depth>` entry for every module touched: entry-point cap, seam category, hidden-complexity contract.
-- Do not introduce a new seam unless two adapters are justified.
-- If the task requires a new module, use the deletion test to justify it — state what complexity would reappear across callers without it.
-- Keep every new module's entry points ≤3. If implementation demands more, split and update `task.files`.
+<write_match_siblings>**Always match the interface shape (naming, error idioms, type patterns) of the nearest same-module siblings**, BECAUSE inconsistent conventions multiply the cognitive load every future reader pays when navigating the module — consistency is a form of depth that reduces the interface readers must learn.</write_match_siblings>
 
-### judge — Reviewer + Summarizer
+<write_respect_depth_entry>**Always respect the `<spec:depth>` entry for every module touched: entry-point cap, seam category, and hidden-complexity contract**, BECAUSE the depth entry is the plan-time contract the Reviewer will grade against; deviating from it without updating the contract produces a guaranteed FAIL verdict.</write_respect_depth_entry>
+
+<write_no_hypothetical_seams>**Always require two justified adapters before introducing a new seam**, BECAUSE a single-adapter seam adds indirection without enabling substitution — it is complexity cost with no leverage benefit. Do not introduce a port unless production and test adapters are both needed.</write_no_hypothetical_seams>
+
+<write_justify_new_module>**Always justify a new module with the deletion test — state what complexity would reappear across callers without it**, BECAUSE a module that cannot pass the deletion test is a shallow pass-through that adds a seam without hiding complexity; the justification must appear in the task output so the Reviewer can evaluate it.</write_justify_new_module>
+
+<write_entry_point_cap>**Always keep every new module's entry points ≤3; if implementation demands more, split and update `task.files`**, BECAUSE an interface with 4+ entry points is a signal that the module mixes concerns — splitting at that point is cheaper than the compounding caller complexity that accrues from a wide interface.</write_entry_point_cap>
+
+</write_overlay>
+
+<judge_overlay>
 
 Used by the `Reviewer` agent when grading a diff and by the `Summarizer` agent when producing `SUMMARY.md`.
 
-**Per-module verdict checks (each can produce a blocker-severity comment):**
+<judge_depth>**Always judge depth by leverage** (the work the interface does on behalf of callers) **not by line-count ratio**, BECAUSE Ousterhout's implementation-to-interface line ratio rewards padding the implementation with dead code and penalises tightly written implementations; leverage — capability per unit of surface — is the correct measure of depth.</judge_depth>
 
-1. **Entry-point cap.** Does the diff respect ≤3 entry points for every module it touches or creates? Exceeding the cap is a blocker.
-2. **Seam adherence.** Does the diff honor the seam category in the `<feature:depth>` entry? A module declared `in-process` that introduces a port is a blocker.
-3. **Hidden-complexity contract.** Does the diff satisfy the "hidden complexity" description in `<feature:depth>`? Complexity that leaks into callers is a blocker.
-4. **Deletion test.** Would deleting the diff's new modules cause complexity to reappear across callers? If not, the module is probably shallow — flag as a finding.
-5. **Scout-visible reinvention.** Does the diff re-implement functionality that a survey of nearby modules would have surfaced? If yes, flag as a blocker: "Composer reinvented X; module Y already provides this."
+<judge_entry_point_cap>**Always treat an entry-point count above 3 as a blocker**, BECAUSE the ≤3 cap is not a style preference — it is the enforced limit in `<spec:depth>` entries and in every Composer diff; a module with 4+ entry points is a signal of mixed concerns that the Reviewer must surface before it calcifies.</judge_entry_point_cap>
 
-**For Summarizer (`SUMMARY.md` depth-contract assessment section):**
-For each module touched by the completed tasks, report:
-- Module name and path.
-- Depth contract from `<feature:depth>` (entry points, seam, hidden complexity).
-- Verdict: honored / violated / partial. Cite specific task IDs and diff evidence.
-- If violated: what should have been done differently.
+<judge_seam_adherence>**Always verify that the diff honors the seam category declared in `<spec:depth>` and treat any deviation as a blocker**, BECAUSE a module declared `in-process` that introduces a port, or one declared `remote-owned` that couples directly to a transport, violates the architectural contract the probe phase established — catching it in review is the last gate before it ships.</judge_seam_adherence>
+
+<judge_hidden_complexity>**Always verify that the diff satisfies the "hidden complexity" description in `<spec:depth>` and treat complexity leaked to callers as a blocker**, BECAUSE complexity that escapes the module boundary negates the leverage the depth contract promised — every caller that must know an implementation detail pays the tax the module was supposed to absorb.</judge_hidden_complexity>
+
+<judge_deletion_test>**Always apply the deletion test to every new module in the diff and flag shallow modules as findings**, BECAUSE a module that can be deleted without cascading rewrites is a pass-through that adds a seam without hiding complexity; the finding signals that the Composer may have split at a boundary that doesn't exist in the problem domain.</judge_deletion_test>
+
+<judge_reinvention>**Always flag as a blocker any diff that re-implements functionality a Scout survey of nearby modules would have surfaced**, BECAUSE reinvention duplicates behaviour that the existing module already hides, undermining locality — bugs and future changes must now be made in two places instead of one.</judge_reinvention>
+
+<judge_summarizer>**Always include a depth-contract assessment section in `SUMMARY.md` for each module touched by completed tasks**, BECAUSE the summary is the loop's audit record; without a per-module verdict (honored / violated / partial) citing task IDs and diff evidence, there is no way to trace architectural drift back to the iteration that introduced it. Report: module name and path; depth contract from `<spec:depth>` (entry points, seam, hidden complexity); verdict with evidence; and, if violated, what should have been done differently.</judge_summarizer>
+
+</judge_overlay>

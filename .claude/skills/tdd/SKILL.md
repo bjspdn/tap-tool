@@ -1,121 +1,93 @@
 ---
 name: tdd
-description: Test-driven development methodology — red, green, refactor. Use when a task's acceptance criteria reference a test file (e.g. `*.test.ts`, `*.spec.js`, or any spec file), when adding new behavior that needs coverage, or when fixing a bug by reproducing it with a failing test first. Do not use for documentation-only tasks or tasks whose acceptance criteria contain no reference to tests or verification steps.
+description: Test-driven development with red-green-refactor loop. Use when user wants to build features or fix bugs using TDD, mentions "red-green-refactor", wants integration tests, or asks for test-first development.
 ---
 
-<red_green_refactor>
+<philosophy>
 
-Write the failing test before writing any production code. The test failing for the right reason — not a compilation error, but a behavioral assertion — is the signal that the spec is correctly captured. Then write the simplest change that makes the test pass. Resist adding more than the test requires.
+<behavior_not_implementation>**Always verify behavior through public interfaces, not implementation details**, BECAUSE internal structure is the author's private concern — callers depend only on what the module promises, and tests that reach inside become obstacles to every refactor rather than safety nets for it. Code can change entirely; tests should not.</behavior_not_implementation>
 
-The refactor step comes only after the test is green. Clean up duplication, rename for clarity, and improve structure — in both the test and the production code. The refactor step does not add behavior. Any new behavior goes through a new red test first.
+<good_tests>**Always write integration-style tests that exercise real code paths through public APIs**, BECAUSE tests that describe what the system does rather than how it does it read like specifications and survive restructuring — a test named "user can checkout with valid cart" tells you exactly what capability exists and remains valid no matter how the internals change.</good_tests>
 
-<example>
-Red: write a test asserting that `sum([1, 2, 3])` returns `6`. Run it; it fails because `sum` does not exist.
-Green: implement `sum` as `items.reduce((a, b) => a + b, 0)`. Run the test; it passes.
-Refactor: if the implementation repeats logic found elsewhere, extract it. The test still passes after.
-</example>
+<bad_tests>**Always treat a test that breaks on a safe refactor as a signal that it is testing implementation, not behavior**, BECAUSE implementation-coupled tests — those that mock internal collaborators, test private methods, or inspect internal state directly — invert the value of a test suite: they block the changes you want and give false confidence about the behavior you care about. If you rename an internal helper and tests fail, those tests were wrong, not your rename.</bad_tests>
 
-</red_green_refactor>
+See [tests.md](tests.md) for examples and [mocking.md](mocking.md) for mocking guidelines.
 
-<one_assertion>
+</philosophy>
 
-Each test verifies one specific behavior with one assertion — or one logical claim expressed as a set of tightly related assertions that jointly describe a single observable outcome. When a test has three assertions checking three unrelated behaviors, split it into three tests.
+<no_horizontal_slicing>**Always grow tests and code in vertical slices — one test then one implementation, cycling through each behavior — rather than writing all tests before any implementation**, BECAUSE tests written in bulk verify imagined behavior rather than actual behavior: they commit to test structure before the implementation teaches you what actually needs verifying, producing tests that are insensitive to real behavioral regressions and fragile against safe restructuring.
 
-<example>
-Wrong — two unrelated behaviors in one test:
+Vertical slices via tracer bullets (see the `<tracer_bullet>` block): one test, one implementation, repeat. Each test responds to what you learned from the previous cycle. Because you just wrote the code, you know exactly what behavior matters and how to verify it.
+
 ```
-assert result.length == 3
-assert result.status == "ok"
+WRONG (horizontal):
+  RED:   test1, test2, test3, test4, test5
+  GREEN: impl1, impl2, impl3, impl4, impl5
+
+RIGHT (vertical):
+  RED→GREEN: test1→impl1
+  RED→GREEN: test2→impl2
+  RED→GREEN: test3→impl3
+  ...
+```
+</no_horizontal_slicing>
+
+<workflow>
+
+<planning>**Always confirm the interface and priority behaviors with the user before writing any code**, BECAUSE starting to write tests before the interface is agreed on produces test structure that encodes assumptions — those assumptions harden into design constraints that are expensive to undo once real code builds on top of them.
+
+- Confirm with the user what interface changes are needed.
+- Confirm with the user which behaviors to test (prioritize).
+- Identify opportunities for [deep modules](deep-modules.md) (small interface, deep implementation).
+- Design interfaces for [testability](interface-design.md).
+- List the behaviors to test (not implementation steps).
+- Get user approval on the plan.
+
+Ask: "What should the public interface look like? Which behaviors are most important to test?"
+
+You cannot test everything. Confirm with the user exactly which behaviors matter most. Focus testing effort on critical paths and complex logic, not every possible edge case.</planning>
+
+<tracer_bullet>**Always begin with a single tracer-bullet test that confirms one end-to-end path through the system**, BECAUSE a suite built on a broken foundation produces compounding confusion — the tracer bullet proves the path works before you invest in covering the remaining behaviors.
+
+```
+RED:   Write test for first behavior → test fails
+GREEN: Write minimal code to pass → test passes
+```
+</tracer_bullet>
+
+<incremental_loop>**Always write one test at a time and add only enough code to pass it**, BECAUSE writing code speculatively — anticipating tests not yet written — embeds unverified assumptions in the implementation and produces code that is never driven by a failing test, eliminating the diagnostic value the RED phase provides.
+
+```
+RED:   Write next test → fails
+GREEN: Minimal code to pass → passes
 ```
 
-Right — one test per behavior:
-Test 1: "returns three items when input contains three elements" → `assert result.length == 3`
-Test 2: "reports ok status on successful parse" → `assert result.status == "ok"`
-</example>
+Rules:
 
-</one_assertion>
+- One test at a time.
+- Only enough code to pass the current test.
+- Do not anticipate future tests.
+- Keep tests focused on observable behavior.</incremental_loop>
 
-<behavior_named_tests>
+<refactor_phase>**Always reach GREEN before refactoring**, BECAUSE restructuring code that has a failing test conflates two separate problems — a broken test and a design concern — making it impossible to tell whether a new failure was caused by the refactor or was already present.
 
-Test names describe observable behavior, not implementation mechanics. A reader should be able to reconstruct the full specification from test names alone, without reading the test bodies.
+After all tests pass, look for refactor candidates (see [refactoring.md](refactoring.md)):
 
-<example>
-Wrong names (mechanics):
-- `test_parse_function`
-- `check_list_processing`
-- `validate_edge_case_1`
+- Extract duplication.
+- Deepen modules (move complexity behind simple interfaces).
+- Apply design principles where natural.
+- Consider what new code reveals about existing code.
+- Run tests after each refactor step.</refactor_phase>
 
-Right names (behavior):
-- `returns empty list when input is empty`
-- `raises an error when the required field is missing`
-- `trims leading whitespace from each token`
-</example>
+<checklist_per_cycle>**Always apply this checklist at every RED→GREEN cycle before moving on**, BECAUSE each cycle is a decision point — skipping the check lets bad test habits and speculative code accumulate silently across cycles until they are expensive to undo.
 
-Name the subject, the context, and the expected outcome. Format: `<subject> <context> <outcome>` or equivalent natural-language phrasing that states what the system does, not what the test checks.
-
-</behavior_named_tests>
-
-<small_fast_units>
-
-Tests run in milliseconds. They have no network calls, no filesystem reads, no database connections, and no subprocess spawns by default. Isolate the unit under test from its dependencies using in-memory fakes, stubs, or fixtures embedded in the test file.
-
-When integration-style testing is genuinely required — testing an I/O boundary, a wire format, or a real subprocess — make it a conscious choice. State the justification in a comment at the top of the test or in the test's preamble. Keep these tests in a separate file or suite so the fast-unit suite can run independently.
-
-</small_fast_units>
-
-<arrange_act_assert>
-
-Each test has three distinct phases:
-
-1. Arrange: set up the inputs, dependencies, and initial state the test needs.
-2. Act: invoke the single operation under test.
-3. Assert: verify the single observable outcome.
-
-Separate the phases with a blank line when the test body is longer than three lines. Avoid interleaving assertions with actions — assert after the action is complete.
-
-<example>
 ```
-// Arrange
-const input = [3, 1, 2]
-
-// Act
-const result = sort(input)
-
-// Assert
-assert result == [1, 2, 3]
+[ ] Test describes behavior, not implementation
+[ ] Test uses public interface only
+[ ] Test would survive internal refactor
+[ ] Code is minimal for this test
+[ ] No speculative features added
 ```
-</example>
+</checklist_per_cycle>
 
-</arrange_act_assert>
-
-<failure_messages>
-
-When an assertion carries a custom failure message, the message explains the invariant being checked — not a restatement of the expression.
-
-<example>
-Wrong: `assert items.length == 0, "items.length == 0"`
-Right: `assert items.length == 0, "list must be empty after calling clear()"`
-</example>
-
-A reader seeing the failure message in a CI log should understand what contract was violated without reading the test source.
-
-</failure_messages>
-
-<refactor_discipline>
-
-The refactor step is a structural improvement pass, not a feature addition. Permitted in refactor:
-
-- Rename variables, functions, and types for clarity
-- Extract duplicated logic into shared helpers
-- Reorganize code within the same behavioral boundary
-- Improve test readability without changing what is asserted
-
-Not permitted in refactor (requires a new red test first):
-
-- Adding a new parameter or return field
-- Changing how an error is surfaced
-- Handling an input case not yet covered by a test
-
-When in doubt, ask: does this change alter any currently passing test's expected output? If yes, go back to red.
-
-</refactor_discipline>
+</workflow>
