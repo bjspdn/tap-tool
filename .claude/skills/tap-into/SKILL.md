@@ -35,6 +35,8 @@ Two lanes:
 - "Map the current `subsystem` — entry points, key files, dependency shape."
 - "Look for prior art: has something like `this feature` been tried, abandoned, or partially built here?"
 
+**Always grep for the SUMMARY.md files** BECAUSE it will give you context about prior feature implemented. You may find them at `.tap/features/*/SUMMARY.md`
+
 **Always include the dependency source in scope when the feature touches a library the repo already pulls in**, BECAUSE the installed source is ground truth — types, exported surface, real behavior — and is usually more reliable than public docs. Every language has a conventional place where its package manager drops installed code. Detect it from the repo (the lockfile, manifest, or build config names the ecosystem; the ecosystem tells you where installed sources live) and instruct the Explore agent to read the relevant package there. Pass the concrete path so the agent doesn't have to guess. If you can't find an installed copy locally, fall back to the web lane — but the on-disk source, when present, beats a web lookup every time.
 
 // TODO: mechanism-viability check should run language-agnostic — derive the project's quality gates from inspecting CI config, manifest/build config, task runners, and contributor docs rather than dispatching on a hardcoded stack list. — revisit when Validator is implemented.
