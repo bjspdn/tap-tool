@@ -185,7 +185,7 @@ export const makeScaffold = (
         const terminal = yield* Terminal.Terminal;
 
         // If a manifest already exists, ask for confirmation before continuing.
-        const manifestExists = yield* fs.exists(manifestPath);
+        const manifestExists = yield* fs.exists(manifestPath).pipe(Effect.orDie);
         if (manifestExists) {
           yield* terminal
             .display("tap is already initialised in this directory. Re-scaffold? [y/N]: ")
@@ -264,7 +264,7 @@ export const makeScaffold = (
         const fs = yield* FileSystem.FileSystem;
 
         // Refuse if not initialised.
-        const manifestExists = yield* fs.exists(manifestPath);
+        const manifestExists = yield* fs.exists(manifestPath).pipe(Effect.orDie);
         if (!manifestExists) {
           return yield* Effect.fail<ScaffoldError>({
             _tag: "ManifestReadFailed",
@@ -339,7 +339,7 @@ export const makeScaffold = (
         const fs = yield* FileSystem.FileSystem;
 
         // Refuse if not initialised.
-        const manifestExists = yield* fs.exists(manifestPath);
+        const manifestExists = yield* fs.exists(manifestPath).pipe(Effect.orDie);
         if (!manifestExists) {
           return yield* Effect.fail<ScaffoldError>({
             _tag: "ManifestReadFailed",
@@ -362,7 +362,7 @@ export const makeScaffold = (
         const claudeFiles = manifest.files.filter((f) => f.startsWith(".claude/"));
         for (const relPath of claudeFiles) {
           const absPath = nodePath.join(cwd, relPath);
-          const exists = yield* fs.exists(absPath);
+          const exists = yield* fs.exists(absPath).pipe(Effect.orDie);
           if (exists) {
             yield* fs.remove(absPath).pipe(Effect.orDie);
             yield* Effect.sync(() => console.log(`  removed ${relPath}`));
@@ -371,7 +371,7 @@ export const makeScaffold = (
 
         // Prune empty .claude/ subdirectories left behind.
         const claudeDir = nodePath.join(cwd, ".claude");
-        const claudeDirExists = yield* fs.exists(claudeDir);
+        const claudeDirExists = yield* fs.exists(claudeDir).pipe(Effect.orDie);
         if (claudeDirExists) {
           yield* pruneEmptyDirs(fs, claudeDir, cwd);
         }
