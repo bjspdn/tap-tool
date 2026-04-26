@@ -18,7 +18,7 @@ import { Either } from "effect";
  *        (or bump "maxAttempts" if you want more retries without a reset)
  *     3. Optionally tighten the task's "description" based on what the last
  *        EVAL_RESULT.md flagged — see eval/archive/<taskId>/
- *     4. Re-run: bun run scripts/bootstrap.ts <name>
+ *     4. Re-run: tap run <name>
  *
  * `allTasks` is the flat list across stories — caller passes
  * `feature.stories.flatMap(s => s.tasks)`.
@@ -46,7 +46,7 @@ export const formatResumeHint = (
     `     (or bump "maxAttempts" if you want more retries without a reset)`,
     `  3. Optionally tighten the task's "description" based on what the last`,
     `     EVAL_RESULT.md flagged — see eval/archive/<taskId>/`,
-    `  4. Re-run: bun run scripts/bootstrap.ts ${summary.feature}`,
+    `  4. Re-run: tap run ${summary.feature}`,
   ].join("\n");
 };
 

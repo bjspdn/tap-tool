@@ -8,7 +8,7 @@ import { teeStream } from "../streamTee";
  * `SPECS.md`, then commits with the message `feat(<id>): <title>`.
  *
  * `projectRoot` must be the repository working-tree root (i.e. `process.cwd()`
- * from the bootstrap entry point). All git operations run from there so that
+ * from the `tap run <feature>` CLI entry point). All git operations run from there so that
  * project-root-relative paths in `task.files` resolve correctly.
  *
  * Returns a typed `GitCommitError` on git failure; the caller decides log-and-continue vs. abort.
