@@ -2,15 +2,21 @@
 /**
  * tap CLI entry point.
  *
- * Usage: tap run <feature-slug>
+ * Usage:
+ *   tap run <feature-slug>   — Run the Ralph loop for a feature
+ *   tap init                 — Scaffold tap files into the current directory
+ *   tap update               — Update managed tap files to the installed version
+ *   tap remove               — Remove all tap-managed files from the current directory
+ *   tap --version            — Print the installed tap version
  *
- * Wires all services via Effect layers, initialises Ref<DashboardState> from
- * the feature contract, forks LoopRunner.run and Dashboard.run as concurrent
- * fibers, then joins both in order (loop first, dashboard second).
+ * Wires all services via Effect layers.
  */
 
+import * as nodeFs from "node:fs";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Args, Command } from "@effect/cli";
+import { FileSystem } from "@effect/platform";
 import { NodeContext, NodeRuntime } from "@effect/platform-node";
 import { Effect, Fiber, Layer, Option, Ref } from "effect";
 import { brand } from "./services/brand";
@@ -21,6 +27,45 @@ import { EvalParserLive } from "./services/EvalParser";
 import { FeatureContract, FeatureContractLive } from "./services/FeatureContract";
 import { LoopRunner, LoopRunnerLive } from "./services/LoopRunner/index";
 import { RunTaskLive } from "./services/RunTask";
+import { Scaffold, ScaffoldLive } from "./services/Scaffold";
+
+// ---------------------------------------------------------------------------
+// Package version — resolved at startup by walking up from this file
+// ---------------------------------------------------------------------------
+
+const resolveCliVersion = (): string => {
+  let dir = path.dirname(fileURLToPath(import.meta.url));
+  while (dir !== path.dirname(dir)) {
+    const candidate = path.join(dir, "package.json");
+    if (nodeFs.existsSync(candidate)) {
+      try {
+        const pkg = JSON.parse(nodeFs.readFileSync(candidate, "utf-8")) as {
+          version?: string;
+        };
+        if (pkg.version) return pkg.version;
+      } catch {
+        // keep walking
+      }
+    }
+    dir = path.dirname(dir);
+  }
+  return "0.0.0";
+};
+
+const CLI_VERSION = resolveCliVersion();
+
+// ---------------------------------------------------------------------------
+// Scaffold full-service type
+//
+// `Scaffold["Type"]` only declares `init`.  `makeScaffold` (and therefore
+// `ScaffoldLive`) also provides `update` and `remove`; we cast to access them
+// without widening the public Tag interface.
+// ---------------------------------------------------------------------------
+
+type ScaffoldWithAll = Scaffold["Type"] & {
+  readonly update: () => Effect.Effect<void, ScaffoldError, FileSystem.FileSystem>;
+  readonly remove: () => Effect.Effect<void, ScaffoldError, FileSystem.FileSystem>;
+};
 
 // ---------------------------------------------------------------------------
 // Initial DashboardState factory
@@ -113,9 +158,41 @@ const runCmd = Command.make(
     }),
 ).pipe(Command.withDescription("Run the Ralph loop for a feature"));
 
+const initCmd = Command.make("init", {}, () =>
+  Effect.gen(function* () {
+    const scaffold = (yield* Scaffold) as ScaffoldWithAll;
+    yield* scaffold.init().pipe(
+      // A declined confirmation is not an error — exit cleanly.
+      Effect.catchTag("ConfirmationDeclined", () => Effect.void),
+    );
+  }),
+).pipe(Command.withDescription("Scaffold tap files into the current directory"));
+
+const updateCmd = Command.make("update", {}, () =>
+  Effect.gen(function* () {
+    const scaffold = (yield* Scaffold) as ScaffoldWithAll;
+    yield* scaffold.update();
+  }),
+).pipe(
+  Command.withDescription(
+    "Update managed tap files to the installed version",
+  ),
+);
+
+const removeCmd = Command.make("remove", {}, () =>
+  Effect.gen(function* () {
+    const scaffold = (yield* Scaffold) as ScaffoldWithAll;
+    yield* scaffold.remove();
+  }),
+).pipe(
+  Command.withDescription(
+    "Remove all tap-managed files from the current directory",
+  ),
+);
+
 const tapCmd = Command.make("tap").pipe(
   Command.withDescription("tap-tool CLI"),
-  Command.withSubcommands([runCmd]),
+  Command.withSubcommands([runCmd, initCmd, updateCmd, removeCmd]),
 );
 
 // ---------------------------------------------------------------------------
@@ -130,13 +207,14 @@ const appLayer = Layer.mergeAll(
   EvalParserLive,
   AgentRunnerLive,
   DashboardLive,
+  ScaffoldLive,
 ).pipe(Layer.provideMerge(NodeContext.layer));
 
 // ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
 
-Command.run(tapCmd, { name: "tap", version: "0.0.1" })(process.argv).pipe(
+Command.run(tapCmd, { name: "tap", version: CLI_VERSION })(process.argv).pipe(
   Effect.provide(appLayer),
   NodeRuntime.runMain,
 );

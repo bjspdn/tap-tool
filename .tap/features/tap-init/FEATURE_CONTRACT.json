@@ -119,8 +119,8 @@
             "S2.T2",
             "S2.T3"
           ],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         }
       ]
