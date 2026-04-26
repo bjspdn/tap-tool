@@ -78,8 +78,13 @@ const runInit = (cwd: string, terminalResponse = "n") =>
     .init()
     .pipe(Effect.provide(makeTestLayer(terminalResponse)));
 
+const runUpdate = (cwd: string) =>
+  makeScaffold(packageRoot, cwd)
+    .update()
+    .pipe(Effect.provide(NodeFileSystem.layer));
+
 // ---------------------------------------------------------------------------
-// Tests
+// Tests — init
 // ---------------------------------------------------------------------------
 
 describe("Scaffold.init", () => {
@@ -196,5 +201,100 @@ describe("Scaffold.init", () => {
     );
 
     expect(Exit.isFailure(exit)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests — update
+// ---------------------------------------------------------------------------
+
+describe("Scaffold.update", () => {
+  test("normal update: copies all template files and rewrites manifest", async () => {
+    // Initialise first so manifest exists
+    await Effect.runPromise(runInit(tmpDir));
+
+    // Overwrite one agent file with sentinel to confirm update overwrites it
+    const agentPath = nodePath.join(tmpDir, ".claude", "agents", "Composer.md");
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        yield* fs.writeFileString(agentPath, "SENTINEL");
+      }).pipe(Effect.provide(NodeFileSystem.layer)),
+    );
+
+    await Effect.runPromise(runUpdate(tmpDir));
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const manifestRaw = yield* fs.readFileString(
+          nodePath.join(tmpDir, ".tap", "manifest.json"),
+        );
+        const manifest = JSON.parse(manifestRaw) as InstallManifest;
+        const agentContent = yield* fs.readFileString(agentPath);
+        return { manifest, agentContent };
+      }).pipe(Effect.provide(NodeFileSystem.layer)),
+    );
+
+    // Sentinel overwritten by update
+    expect(result.agentContent).not.toBe("SENTINEL");
+    // Manifest still valid
+    expect(typeof result.manifest.version).toBe("string");
+    expect(result.manifest.files.length).toBeGreaterThan(0);
+  });
+
+  test("update deletes stale files no longer in template list", async () => {
+    // Initialise first
+    await Effect.runPromise(runInit(tmpDir));
+
+    // Inject a fake stale entry into the manifest and create its file on disk
+    const staleRelPath = ".claude/agents/STALE_FILE_TO_REMOVE.md";
+    const staleAbsPath = nodePath.join(tmpDir, staleRelPath);
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        // Create the stale file
+        yield* fs.writeFileString(staleAbsPath, "stale content");
+        // Patch the manifest to include it
+        const manifestPath = nodePath.join(tmpDir, ".tap", "manifest.json");
+        const raw = yield* fs.readFileString(manifestPath);
+        const manifest = JSON.parse(raw) as InstallManifest;
+        manifest.files.push(staleRelPath);
+        yield* fs.writeFileString(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+      }).pipe(Effect.provide(NodeFileSystem.layer)),
+    );
+
+    // Run update
+    await Effect.runPromise(runUpdate(tmpDir));
+
+    // Stale file must be gone
+    const staleExists = await Effect.runPromise(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        return yield* fs.exists(staleAbsPath);
+      }).pipe(Effect.provide(NodeFileSystem.layer)),
+    );
+    expect(staleExists).toBe(false);
+
+    // New manifest must not contain the stale path
+    const newManifestRaw = await Effect.runPromise(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        return yield* fs.readFileString(nodePath.join(tmpDir, ".tap", "manifest.json"));
+      }).pipe(Effect.provide(NodeFileSystem.layer)),
+    );
+    const newManifest = JSON.parse(newManifestRaw) as InstallManifest;
+    expect(newManifest.files.includes(staleRelPath)).toBe(false);
+  });
+
+  test("update refuses with ManifestReadFailed when not initialised", async () => {
+    // tmpDir has no manifest — never initialised
+    const exit = await Effect.runPromise(runUpdate(tmpDir).pipe(Effect.exit));
+
+    expect(Exit.isFailure(exit)).toBe(true);
+    if (Exit.isFailure(exit)) {
+      expect(JSON.stringify(exit.cause)).toContain("ManifestReadFailed");
+    }
   });
 });

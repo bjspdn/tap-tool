@@ -65,23 +65,83 @@ const walkDir = (
   });
 
 // ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+/** Enumerate all template files from the three sub-trees in `packageRoot`. */
+const enumerateTemplateFiles = (
+  fs: FileSystem.FileSystem,
+  packageRoot: string,
+): Effect.Effect<ReadonlyArray<string>, never> =>
+  Effect.gen(function* () {
+    const templateDirs = [
+      nodePath.join(packageRoot, ".claude", "agents"),
+      nodePath.join(packageRoot, ".claude", "skills"),
+      nodePath.join(packageRoot, ".tap", "prompts"),
+    ];
+    const results: string[] = [];
+    for (const dir of templateDirs) {
+      const files = yield* walkDir(fs, dir);
+      results.push(...files);
+    }
+    return results;
+  });
+
+/** Copy a single file from srcAbs to destAbs, creating parent dirs as needed. */
+const copyFile = (
+  fs: FileSystem.FileSystem,
+  srcAbs: string,
+  destAbs: string,
+): Effect.Effect<void, ScaffoldError> =>
+  Effect.gen(function* () {
+    yield* fs.makeDirectory(nodePath.dirname(destAbs), { recursive: true }).pipe(
+      Effect.catchAll((cause) =>
+        Effect.fail<ScaffoldError>({ _tag: "FileCopyFailed", src: srcAbs, dest: destAbs, cause }),
+      ),
+    );
+    const content = yield* fs.readFileString(srcAbs).pipe(
+      Effect.catchAll((cause) =>
+        Effect.fail<ScaffoldError>({ _tag: "FileCopyFailed", src: srcAbs, dest: destAbs, cause }),
+      ),
+    );
+    yield* fs.writeFileString(destAbs, content).pipe(
+      Effect.catchAll((cause) =>
+        Effect.fail<ScaffoldError>({ _tag: "FileCopyFailed", src: srcAbs, dest: destAbs, cause }),
+      ),
+    );
+  });
+
+// ---------------------------------------------------------------------------
 // makeScaffold factory (exported for testing)
 // ---------------------------------------------------------------------------
 
 /**
  * Construct a `Scaffold` service implementation.
  *
+ * The returned object satisfies `Scaffold["Type"]` and additionally exposes
+ * `update` (added in S2.T2) before the `Scaffold` context tag is widened.
+ *
  * @param packageRoot - Absolute path to the installed @bjspdn/tap package.
  * @param cwd         - Working directory to scaffold into (the user's project root).
  */
-export const makeScaffold = (packageRoot: string, cwd: string): Scaffold["Type"] =>
-  Scaffold.of({
+export const makeScaffold = (
+  packageRoot: string,
+  cwd: string,
+): Scaffold["Type"] & {
+  update: () => Effect.Effect<void, ScaffoldError, FileSystem.FileSystem>;
+} => {
+  const manifestPath = nodePath.join(cwd, ".tap", "manifest.json");
+
+  const svc: Scaffold["Type"] & {
+    update: () => Effect.Effect<void, ScaffoldError, FileSystem.FileSystem>;
+  } = {
+    // -------------------------------------------------------------------------
+    // init
+    // -------------------------------------------------------------------------
     init: () =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const terminal = yield* Terminal.Terminal;
-
-        const manifestPath = nodePath.join(cwd, ".tap", "manifest.json");
 
         // If a manifest already exists, ask for confirmation before continuing.
         const manifestExists = yield* fs.exists(manifestPath);
@@ -107,95 +167,40 @@ export const makeScaffold = (packageRoot: string, cwd: string): Scaffold["Type"]
         const { version } = JSON.parse(pkgJsonRaw) as { version: string };
 
         // Enumerate all files from the three template sub-trees.
-        const templateDirs = [
-          nodePath.join(packageRoot, ".claude", "agents"),
-          nodePath.join(packageRoot, ".claude", "skills"),
-          nodePath.join(packageRoot, ".tap", "prompts"),
-        ];
-
-        const absoluteFiles: string[] = [];
-        for (const dir of templateDirs) {
-          const files = yield* walkDir(fs, dir);
-          absoluteFiles.push(...files);
-        }
+        const absoluteFiles = yield* enumerateTemplateFiles(fs, packageRoot);
 
         // Copy each template file into cwd, preserving the relative path.
         const copiedRelPaths: string[] = [];
         for (const srcAbs of absoluteFiles) {
           const relPath = nodePath.relative(packageRoot, srcAbs);
           const destAbs = nodePath.join(cwd, relPath);
-          const destDir = nodePath.dirname(destAbs);
-
-          yield* fs.makeDirectory(destDir, { recursive: true }).pipe(
-            Effect.catchAll((cause) =>
-              Effect.fail<ScaffoldError>({
-                _tag: "FileCopyFailed",
-                src: srcAbs,
-                dest: destAbs,
-                cause,
-              }),
-            ),
-          );
-
-          const content = yield* fs.readFileString(srcAbs).pipe(
-            Effect.catchAll((cause) =>
-              Effect.fail<ScaffoldError>({
-                _tag: "FileCopyFailed",
-                src: srcAbs,
-                dest: destAbs,
-                cause,
-              }),
-            ),
-          );
-
-          yield* fs.writeFileString(destAbs, content).pipe(
-            Effect.catchAll((cause) =>
-              Effect.fail<ScaffoldError>({
-                _tag: "FileCopyFailed",
-                src: srcAbs,
-                dest: destAbs,
-                cause,
-              }),
-            ),
-          );
-
+          yield* copyFile(fs, srcAbs, destAbs);
           copiedRelPaths.push(relPath);
           yield* Effect.sync(() => console.log(`  created ${relPath}`));
         }
 
         // Create the .tap/features/ directory.
         const featuresDir = nodePath.join(cwd, ".tap", "features");
-        yield* fs
-          .makeDirectory(featuresDir, { recursive: true })
-          .pipe(
-            Effect.catchAll((cause) =>
-              Effect.fail<ScaffoldError>({
-                _tag: "FileCopyFailed",
-                src: featuresDir,
-                dest: featuresDir,
-                cause,
-              }),
-            ),
-          );
-        yield* Effect.sync(() => console.log("  created .tap/features/"));
-
-        // Write manifest last — a missing or partial manifest signals incomplete init.
-        const tapDir = nodePath.join(cwd, ".tap");
-        yield* fs.makeDirectory(tapDir, { recursive: true }).pipe(
+        yield* fs.makeDirectory(featuresDir, { recursive: true }).pipe(
           Effect.catchAll((cause) =>
             Effect.fail<ScaffoldError>({
-              _tag: "ManifestWriteFailed",
-              path: manifestPath,
+              _tag: "FileCopyFailed",
+              src: featuresDir,
+              dest: featuresDir,
               cause,
             }),
           ),
         );
+        yield* Effect.sync(() => console.log("  created .tap/features/"));
 
-        const manifest: InstallManifest = {
-          version,
-          files: copiedRelPaths,
-        };
+        // Write manifest last — a missing or partial manifest signals incomplete init.
+        yield* fs.makeDirectory(nodePath.join(cwd, ".tap"), { recursive: true }).pipe(
+          Effect.catchAll((cause) =>
+            Effect.fail<ScaffoldError>({ _tag: "ManifestWriteFailed", path: manifestPath, cause }),
+          ),
+        );
 
+        const manifest: InstallManifest = { version, files: copiedRelPaths };
         yield* fs
           .writeFileString(manifestPath, JSON.stringify(manifest, null, 2) + "\n")
           .pipe(
@@ -207,10 +212,87 @@ export const makeScaffold = (packageRoot: string, cwd: string): Scaffold["Type"]
               }),
             ),
           );
-
         yield* Effect.sync(() => console.log("  created .tap/manifest.json"));
       }),
-  });
+
+    // -------------------------------------------------------------------------
+    // update
+    // -------------------------------------------------------------------------
+    update: () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+
+        // Refuse if not initialised.
+        const manifestExists = yield* fs.exists(manifestPath);
+        if (!manifestExists) {
+          return yield* Effect.fail<ScaffoldError>({
+            _tag: "ManifestReadFailed",
+            path: manifestPath,
+            cause: new Error(
+              "tap is not initialised in this directory — run `tap init` first",
+            ),
+          });
+        }
+
+        // Read old manifest.
+        const manifestRaw = yield* fs.readFileString(manifestPath).pipe(
+          Effect.catchAll((cause) =>
+            Effect.fail<ScaffoldError>({ _tag: "ManifestReadFailed", path: manifestPath, cause }),
+          ),
+        );
+        const oldManifest = JSON.parse(manifestRaw) as InstallManifest;
+
+        // Read package version.
+        const pkgJsonRaw = nodeFs.readFileSync(
+          nodePath.join(packageRoot, "package.json"),
+          "utf-8",
+        );
+        const { version } = JSON.parse(pkgJsonRaw) as { version: string };
+
+        // Enumerate new template files.
+        const absoluteFiles = yield* enumerateTemplateFiles(fs, packageRoot);
+        const newRelPaths = absoluteFiles.map((abs) => nodePath.relative(packageRoot, abs));
+        const newRelSet = new Set(newRelPaths);
+
+        // Stale = in old manifest but absent from new template list.
+        const staleFiles = oldManifest.files.filter((f) => !newRelSet.has(f));
+        const oldRelSet = new Set(oldManifest.files);
+
+        // Copy all new template files (overwrite existing).
+        for (const srcAbs of absoluteFiles) {
+          const relPath = nodePath.relative(packageRoot, srcAbs);
+          const destAbs = nodePath.join(cwd, relPath);
+          yield* copyFile(fs, srcAbs, destAbs);
+          const verb = oldRelSet.has(relPath) ? "updated" : "added";
+          yield* Effect.sync(() => console.log(`  ${verb} ${relPath}`));
+        }
+
+        // Delete stale files.
+        for (const relPath of staleFiles) {
+          const destAbs = nodePath.join(cwd, relPath);
+          yield* fs.remove(destAbs).pipe(Effect.orDie);
+          yield* Effect.sync(() => console.log(`  removed ${relPath}`));
+        }
+
+        // Write updated manifest.
+        const newManifest: InstallManifest = { version, files: newRelPaths };
+        yield* fs
+          .writeFileString(manifestPath, JSON.stringify(newManifest, null, 2) + "\n")
+          .pipe(
+            Effect.catchAll((cause) =>
+              Effect.fail<ScaffoldError>({
+                _tag: "ManifestWriteFailed",
+                path: manifestPath,
+                cause,
+              }),
+            ),
+          );
+        yield* Effect.sync(() => console.log("  updated .tap/manifest.json"));
+      }),
+  };
+
+  return svc;
+};
 
 // ---------------------------------------------------------------------------
 // ScaffoldLive layer
