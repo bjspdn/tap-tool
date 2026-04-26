@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 /**
  * tap CLI entry point.
  *
@@ -11,7 +11,7 @@
 
 import * as path from "node:path";
 import { Args, Command } from "@effect/cli";
-import { BunContext, BunRuntime } from "@effect/platform-bun";
+import { NodeContext, NodeRuntime } from "@effect/platform-node";
 import { Effect, Fiber, Layer, Option, Ref } from "effect";
 import { brand } from "./services/brand";
 import { AgentRunnerLive } from "./services/AgentRunner";
@@ -130,7 +130,7 @@ const appLayer = Layer.mergeAll(
   EvalParserLive,
   AgentRunnerLive,
   DashboardLive,
-).pipe(Layer.provideMerge(BunContext.layer));
+).pipe(Layer.provideMerge(NodeContext.layer));
 
 // ---------------------------------------------------------------------------
 // Entry point
@@ -138,5 +138,5 @@ const appLayer = Layer.mergeAll(
 
 Command.run(tapCmd, { name: "tap", version: "0.0.1" })(process.argv).pipe(
   Effect.provide(appLayer),
-  BunRuntime.runMain,
+  NodeRuntime.runMain,
 );

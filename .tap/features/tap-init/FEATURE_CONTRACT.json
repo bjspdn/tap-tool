@@ -1,0 +1,151 @@
+{
+  "feature": "tap-init",
+  "goal": "Add tap init/update/remove/--version commands, restructure for npm publishing as @bjspdn/tap, swap to Node runtime, and set up CI/CD with semantic versioning.",
+  "description": "Swap runtime from @effect/platform-bun to @effect/platform-node for portability. Restructure package.json for npm publishing. Implement a Scaffold Effect service with init/update/remove operations backed by a manifest file. Wire new CLI subcommands via @effect/cli. Add GitHub Actions workflow with semantic-release for automated npm publishing.",
+  "constraints": [
+    "Follow existing Effect service conventions: Context.Tag, Layer, ambient types in src/types/*.d.ts",
+    "@effect/platform-node replaces @effect/platform-bun in runtime dependencies; Bun remains dev tooling only",
+    "Template files ship as-is via package.json files field — no copy step or prepublishOnly for templates",
+    "Build step: bun build src/cli.ts --outdir dist --target node",
+    "dist/ is gitignored but npm-published via files field",
+    "Do NOT scaffold settings.local.json, .tap/tmp/, or CLAUDE.md — those are user/repo-specific",
+    "Manifest lives at .tap/manifest.json — written last during init, read first during update/remove",
+    "semantic-release triggers on feat (minor), fix (patch), refactor (patch) conventional commit types"
+  ],
+  "stories": [
+    {
+      "id": "S1",
+      "title": "Platform & Build Foundation",
+      "description": "Swap the runtime platform from Bun to Node for npm portability and restructure package.json for publishing as @bjspdn/tap.",
+      "tasks": [
+        {
+          "id": "S1.T1",
+          "title": "Swap @effect/platform-bun to @effect/platform-node",
+          "description": "Replace @effect/platform-bun imports in src/cli.ts with @effect/platform-node (BunRuntime → NodeRuntime, BunContext → NodeContext). Swap dependency in package.json: remove @effect/platform-bun, add @effect/platform-node. Verify existing tests still pass under Bun.",
+          "files": [
+            "src/cli.ts",
+            "package.json"
+          ],
+          "depends_on": [],
+          "status": "done",
+          "attempts": 1,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S1.T2",
+          "title": "Restructure package.json for npm publishing",
+          "description": "Set name to @bjspdn/tap, set version to 0.0.0-development, remove private: true, add publishConfig: {access: public}, set files: [\"dist\", \".claude/agents\", \".claude/skills\", \".tap/prompts\"], set bin to ./dist/cli.js, add build script: bun build src/cli.ts --outdir dist --target node. Add dist/ to .gitignore.",
+          "files": [
+            "package.json",
+            ".gitignore"
+          ],
+          "depends_on": [
+            "S1.T1"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        }
+      ]
+    },
+    {
+      "id": "S2",
+      "title": "Scaffold Service",
+      "description": "Implement the Scaffold Effect service with init, update, and remove operations, backed by a manifest file that tracks installed version and managed file paths.",
+      "tasks": [
+        {
+          "id": "S2.T1",
+          "title": "Scaffold types + init implementation",
+          "description": "Declare InstallManifest ambient type in src/types/InstallManifest.d.ts (version: string, files: string[]). Implement Scaffold Effect service with init operation: resolve package root via import.meta.url, enumerate template files from .claude/agents, .claude/skills, .tap/prompts in the package, copy to cwd creating directories as needed, create .tap/features/, write .tap/manifest.json with version + file list, log each created file/directory. If manifest already exists, prompt for confirmation before re-scaffolding. Tests in src/services/Scaffold/__tests__/Scaffold.test.ts.",
+          "files": [
+            "src/types/InstallManifest.d.ts",
+            "src/services/Scaffold/Scaffold.ts",
+            "src/services/Scaffold/ScaffoldLive.ts",
+            "src/services/Scaffold/index.ts",
+            "src/services/Scaffold/__tests__/Scaffold.test.ts"
+          ],
+          "depends_on": [],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S2.T2",
+          "title": "Scaffold update implementation",
+          "description": "Add update operation to Scaffold service: read .tap/manifest.json (refuse with clear message if missing), resolve package root and enumerate new template file list, diff old manifest files against new list to find stale files, copy all new template files to cwd overwriting existing, delete stale files, write updated manifest with new version and file list, log each updated/added/removed file. Tests cover: normal update, stale file cleanup, not-initialized refusal.",
+          "files": [
+            "src/services/Scaffold/ScaffoldLive.ts",
+            "src/services/Scaffold/__tests__/Scaffold.test.ts"
+          ],
+          "depends_on": [
+            "S2.T1"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        },
+        {
+          "id": "S2.T3",
+          "title": "Scaffold remove implementation",
+          "description": "Add remove operation to Scaffold service: read .tap/manifest.json (refuse with clear message if missing), delete managed .claude/ files listed in manifest, clean up empty .claude/ subdirectories left behind, delete .tap/ directory entirely (features, prompts, manifest, everything), log each removed file/directory. Tests cover: normal remove, not-initialized refusal, partial .claude/ cleanup (leaves non-tap files).",
+          "files": [
+            "src/services/Scaffold/ScaffoldLive.ts",
+            "src/services/Scaffold/__tests__/Scaffold.test.ts"
+          ],
+          "depends_on": [
+            "S2.T1"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        }
+      ]
+    },
+    {
+      "id": "S3",
+      "title": "CLI Commands",
+      "description": "Wire tap init, tap update, tap remove, and tap --version into the existing @effect/cli command routing alongside tap run.",
+      "tasks": [
+        {
+          "id": "S3.T1",
+          "title": "Wire init, update, remove, --version into @effect/cli",
+          "description": "Add init, update, and remove as subcommands to the existing tap root command via Command.withSubcommands, alongside the existing run subcommand. Each command is a thin handler composing Scaffold service calls with the platform layer. Add --version flag to the root command that reads and prints the package version. Provide Scaffold layer in the CLI's layer composition.",
+          "files": [
+            "src/cli.ts"
+          ],
+          "depends_on": [
+            "S1.T2",
+            "S2.T1",
+            "S2.T2",
+            "S2.T3"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        }
+      ]
+    },
+    {
+      "id": "S4",
+      "title": "CI/CD Pipeline",
+      "description": "Set up a GitHub Actions workflow with semantic-release that auto-publishes to npm with semantic versioning on push to master.",
+      "tasks": [
+        {
+          "id": "S4.T1",
+          "title": "GitHub Actions workflow + semantic-release config",
+          "description": "Create .github/workflows/release.yml: trigger on push to master, checkout with full history, setup Node, install deps with bun, run tests, run build, run npx semantic-release. Create .releaserc.json configuring: feat → minor, fix → patch, refactor → patch, npm publish, GitHub release creation. Requires NPM_TOKEN and GITHUB_TOKEN secrets (documented in workflow comments).",
+          "files": [
+            ".github/workflows/release.yml",
+            ".releaserc.json"
+          ],
+          "depends_on": [
+            "S1.T2"
+          ],
+          "status": "pending",
+          "attempts": 0,
+          "maxAttempts": 3
+        }
+      ]
+    }
+  ]
+}
