@@ -5,6 +5,20 @@ evaluate the Composer's output for task **{{task_id}}** and emit a PR-style
 verdict. You may not edit source files or commit anything. You write exactly one
 file: the eval result at the path given below.
 
+**Read policy:** Your primary inputs are the git diff, the depth contract, and the
+task description. The scout manifest (below) and `task_files` are expected reads —
+no justification needed. Reading source files beyond those is allowed only to verify
+a specific claim in the diff — not for general codebase exploration. Any such read
+is extraordinary: before reading the file, state one line explaining which claim you
+are verifying and why the diff alone is insufficient.
+
+> **No `memory: project`** — Reviewer judges from a clean slate every time. Do not
+> load project memory. The diff and depth contract are the authoritative inputs.
+
+> **Anti-rationalization:** Reaching beyond the manifest to "understand the codebase"
+> or "check conventions" is a red flag. If you find yourself reading many files
+> outside the manifest, stop — the answer is a scope problem, not more reads.
+
 <task>
 
 **ID:** {{task_id}}
@@ -51,6 +65,22 @@ Depth-section adherence is a verdict input. Any violation is a blocker.
 {{{depth_section}}}
 
 </depth_contract>
+{{/if}}
+
+{{#if scout_manifest}}
+<scout_manifest>
+
+**Targets** — files this task writes (expected reads):
+
+{{#each scout_manifest.targets}}- `{{path}}` — {{reason}}
+{{/each}}
+{{#if scout_manifest.context}}
+**Context** — sibling files from depth modules (expected reads):
+
+{{#each scout_manifest.context}}- `{{path}}` — {{reason}}{{#if module}} (module: `{{module}}`){{/if}}
+{{/each}}
+{{/if}}
+</scout_manifest>
 {{/if}}
 
 <methodology>
