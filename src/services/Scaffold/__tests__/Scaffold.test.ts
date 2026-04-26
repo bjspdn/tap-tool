@@ -1,0 +1,200 @@
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { Effect, Exit, Layer } from "effect";
+import { FileSystem, Terminal } from "@effect/platform";
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import { fileURLToPath } from "node:url";
+import * as nodePath from "node:path";
+import * as os from "node:os";
+import { makeScaffold } from "../ScaffoldLive";
+
+// ---------------------------------------------------------------------------
+// Package root (4 dirs up from __tests__/)
+// ---------------------------------------------------------------------------
+
+const packageRoot = nodePath.resolve(
+  nodePath.dirname(fileURLToPath(new URL(import.meta.url))),
+  "../../../../",
+);
+
+// ---------------------------------------------------------------------------
+// Terminal mock factory
+// ---------------------------------------------------------------------------
+
+const makeTerminalLayer = (readLineResponse: string): Layer.Layer<Terminal.Terminal> =>
+  Layer.succeed(
+    Terminal.Terminal,
+    Terminal.Terminal.of({
+      readLine: Effect.succeed(readLineResponse),
+      display: (_text: string) => Effect.void,
+      columns: Effect.succeed(80),
+      rows: Effect.succeed(24),
+      isTTY: Effect.succeed(false),
+      readInput: Effect.die("readInput not mocked in Scaffold tests"),
+    }),
+  );
+
+// ---------------------------------------------------------------------------
+// Test layer: NodeFileSystem + Terminal mock
+// ---------------------------------------------------------------------------
+
+const makeTestLayer = (readLineResponse = "n"): Layer.Layer<
+  FileSystem.FileSystem | Terminal.Terminal
+> =>
+  Layer.merge(NodeFileSystem.layer, makeTerminalLayer(readLineResponse));
+
+// ---------------------------------------------------------------------------
+// Tmp directory management
+// ---------------------------------------------------------------------------
+
+let tmpDir = "";
+
+beforeEach(async () => {
+  tmpDir = nodePath.join(os.tmpdir(), `scaffold-test-${crypto.randomUUID()}`);
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      yield* fs.makeDirectory(tmpDir, { recursive: true });
+    }).pipe(Effect.provide(NodeFileSystem.layer)),
+  );
+});
+
+afterEach(async () => {
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      yield* fs
+        .remove(tmpDir, { recursive: true })
+        .pipe(Effect.catchAll(() => Effect.void));
+    }).pipe(Effect.provide(NodeFileSystem.layer)),
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const runInit = (cwd: string, terminalResponse = "n") =>
+  makeScaffold(packageRoot, cwd)
+    .init()
+    .pipe(Effect.provide(makeTestLayer(terminalResponse)));
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe("Scaffold.init", () => {
+  test("creates .claude/, .tap/prompts/, .tap/features/, and manifest", async () => {
+    await Effect.runPromise(runInit(tmpDir));
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const manifestRaw = yield* fs.readFileString(
+          nodePath.join(tmpDir, ".tap", "manifest.json"),
+        );
+        const manifest = JSON.parse(manifestRaw) as InstallManifest;
+        const featuresExists = yield* fs.exists(nodePath.join(tmpDir, ".tap", "features"));
+        const agentsExist = yield* fs.exists(nodePath.join(tmpDir, ".claude", "agents"));
+        return { manifest, featuresExists, agentsExist };
+      }).pipe(Effect.provide(NodeFileSystem.layer)),
+    );
+
+    expect(result.featuresExists).toBe(true);
+    expect(result.agentsExist).toBe(true);
+    expect(typeof result.manifest.version).toBe("string");
+    expect(Array.isArray(result.manifest.files)).toBe(true);
+    expect(result.manifest.files.length).toBeGreaterThan(0);
+  });
+
+  test("manifest files list contains agent and skill paths", async () => {
+    await Effect.runPromise(runInit(tmpDir));
+
+    const manifestRaw = await Effect.runPromise(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        return yield* fs.readFileString(nodePath.join(tmpDir, ".tap", "manifest.json"));
+      }).pipe(Effect.provide(NodeFileSystem.layer)),
+    );
+    const manifest = JSON.parse(manifestRaw) as InstallManifest;
+
+    const hasAgent = manifest.files.some((f) => f.startsWith(".claude/agents/"));
+    const hasPrompt = manifest.files.some((f) => f.startsWith(".tap/prompts/"));
+    expect(hasAgent).toBe(true);
+    expect(hasPrompt).toBe(true);
+  });
+
+  test("manifest is written last (all files already copied when it appears)", async () => {
+    await Effect.runPromise(runInit(tmpDir));
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const manifestRaw = yield* fs.readFileString(
+          nodePath.join(tmpDir, ".tap", "manifest.json"),
+        );
+        const manifest = JSON.parse(manifestRaw) as InstallManifest;
+        // Verify each listed file actually exists
+        const checks: boolean[] = [];
+        for (const rel of manifest.files) {
+          checks.push(yield* fs.exists(nodePath.join(tmpDir, rel)));
+        }
+        return checks;
+      }).pipe(Effect.provide(NodeFileSystem.layer)),
+    );
+
+    expect(result.every(Boolean)).toBe(true);
+  });
+
+  test("re-init with confirmation 'y' overwrites files and updates manifest", async () => {
+    // First init
+    await Effect.runPromise(runInit(tmpDir));
+
+    // Overwrite one agent file with sentinel content
+    const agentPath = nodePath.join(tmpDir, ".claude", "agents", "Composer.md");
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        yield* fs.writeFileString(agentPath, "SENTINEL");
+      }).pipe(Effect.provide(NodeFileSystem.layer)),
+    );
+
+    // Re-init with 'y' confirmation
+    await Effect.runPromise(runInit(tmpDir, "y"));
+
+    const content = await Effect.runPromise(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        return yield* fs.readFileString(agentPath);
+      }).pipe(Effect.provide(NodeFileSystem.layer)),
+    );
+
+    expect(content).not.toBe("SENTINEL");
+  });
+
+  test("re-init with confirmation 'n' fails with ConfirmationDeclined", async () => {
+    // First init
+    await Effect.runPromise(runInit(tmpDir));
+
+    // Attempt re-init with 'n'
+    const exit = await Effect.runPromise(
+      runInit(tmpDir, "n").pipe(Effect.exit),
+    );
+
+    expect(Exit.isFailure(exit)).toBe(true);
+    if (Exit.isFailure(exit)) {
+      const err = exit.cause;
+      // The failure carries a ScaffoldError with _tag ConfirmationDeclined
+      expect(JSON.stringify(err)).toContain("ConfirmationDeclined");
+    }
+  });
+
+  test("re-init with empty confirmation defaults to no (ConfirmationDeclined)", async () => {
+    await Effect.runPromise(runInit(tmpDir));
+
+    const exit = await Effect.runPromise(
+      runInit(tmpDir, "").pipe(Effect.exit),
+    );
+
+    expect(Exit.isFailure(exit)).toBe(true);
+  });
+});

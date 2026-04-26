@@ -65,8 +65,8 @@
             "src/services/Scaffold/__tests__/Scaffold.test.ts"
           ],
           "depends_on": [],
-          "status": "pending",
-          "attempts": 0,
+          "status": "done",
+          "attempts": 1,
           "maxAttempts": 3
         },
         {
